@@ -1065,36 +1065,111 @@ function capitalizeFirstLetter(string) {
 
 async function getListenerCount() {
     try {
+        // Try to get real listener count
         const response = await fetch(`${BASE_URL}/station/${STATION_NAME}/listeners`);
         if (!response.ok) throw new Error('Failed to fetch listener count');
         const realCount = await response.json();
         
-        // Base engagement (encoded)
-        const baseEngagement = parseInt(atob('MTA=')); // Base 10
+        // Get current date/time info
+        const now = new Date();
+        const hour = now.getHours();
+        const day = now.getDay(); // 0 = Sunday, 6 = Saturday
+        const month = now.getMonth();
         
-        // Add random fluctuation (±3)
-        const fluctuation = Math.floor(Math.random() * 7) - 3;
+        // Base engagement (much lower)
+        let baseEngagement = 5; // Default base (2 + 3 extra)
         
-        // Time-based boost during peak hours (6 PM - 11 PM)
-        const hour = new Date().getHours();
-        const peakBoost = (hour >= 18 && hour <= 23) ? parseInt(atob('NQ==')) : 0; // Base64 encoded "5"
+        // Time-based patterns (much lower numbers)
+        const timePatterns = {
+            earlyMorning: hour >= 5 && hour < 7 ? 1 : 0,     // Early risers
+            morningRush: hour >= 7 && hour < 9 ? 2 : 0,      // Morning commute
+            workDay: hour >= 9 && hour < 16 ? 1 : 0,         // Work hours
+            eveningRush: hour >= 16 && hour < 19 ? 2 : 0,    // Evening commute
+            primeTime: hour >= 19 && hour < 23 ? 3 : 0,      // Prime time
+            lateNight: hour >= 23 || hour < 5 ? 1 : 0        // Late night
+        };
         
-        // Weekend boost (Friday evening through Sunday)
-        const day = new Date().getDay(); // 0 = Sunday, 6 = Saturday
-        const isWeekend = (day === 0 || day === 6 || (day === 5 && hour >= 18));
-        const weekendBoost = isWeekend ? parseInt(atob('Mw==')) : 0; // Base64 encoded "3"
+        // Apply the most relevant time pattern
+        baseEngagement += Object.values(timePatterns).find(value => value > 0) || 0;
         
-        // Calculate total with all factors
-        const totalEngagement = realCount + baseEngagement + fluctuation + peakBoost + weekendBoost;
+        // Day of week factors (smaller boosts)
+        const dayFactors = {
+            weekend: (day === 0 || day === 6) ? 1.2 : 1,     // 20% boost on weekends
+            friday: day === 5 ? 1.1 : 1,                     // 10% boost on Fridays
+            monday: day === 1 ? 0.9 : 1                      // 10% reduction on Mondays
+        };
         
-        // Never go below base engagement
-        return Math.max(totalEngagement, baseEngagement);
+        // Apply day factors
+        const dayMultiplier = Object.values(dayFactors).reduce((acc, val) => acc * val, 1);
+        baseEngagement = Math.round(baseEngagement * dayMultiplier);
+        
+        // Seasonal patterns (reduced variations)
+        const seasonalFactors = {
+            winter: (month === 11 || month === 0 || month === 1) ? 1.1 : 1,   // 10% boost in winter
+            summer: (month >= 6 && month <= 8) ? 0.9 : 1                      // 10% reduction in summer
+        };
+        
+        // Apply seasonal factors
+        const seasonMultiplier = Object.values(seasonalFactors).reduce((acc, val) => acc * val, 1);
+        baseEngagement = Math.round(baseEngagement * seasonMultiplier);
+        
+        // Random fluctuation (smaller ranges)
+        const fluctuation = () => {
+            const rand = Math.random();
+            if (rand < 0.7) {  // 70% chance of very small change
+                return Math.floor(Math.random() * 3) - 1;     // -1 to +1
+            } else if (rand < 0.9) {  // 20% chance of small change
+                return Math.floor(Math.random() * 3) - 1;     // -1 to +1
+            } else {  // 10% chance of medium change
+                return Math.floor(Math.random() * 3) - 1;     // -1 to +1
+            }
+        };
+        
+        // Special events boost (reduced multipliers)
+        const specialEvents = [
+            { month: 11, day: 25, multiplier: 1.2 },  // Christmas
+            { month: 11, day: 31, multiplier: 1.3 }   // New Year's Eve
+        ];
+        
+        // Check for special events
+        const specialEventMultiplier = specialEvents.reduce((acc, event) => {
+            if (month === event.month && now.getDate() === event.day) {
+                return acc * event.multiplier;
+            }
+            return acc;
+        }, 1);
+        
+        baseEngagement = Math.round(baseEngagement * specialEventMultiplier);
+        
+        // Combine real listeners with simulated engagement (keeping stacking)
+        const totalEngagement = Math.max(
+            realCount + baseEngagement + fluctuation(),
+            Math.ceil(baseEngagement * 0.8)  // Never drop below 80% of base
+        );
+        
+        // Cache the result for rapid subsequent calls
+        localStorage.setItem('lastListenerCount', totalEngagement);
+        localStorage.setItem('lastListenerUpdate', now.getTime());
+        
+        return totalEngagement;
+        
     } catch (error) {
-        console.error('Error fetching listener count:', error);
-        // Fallback with random fluctuation
-        const baseCount = parseInt(atob('MTA='));
-        const fallbackFluctuation = Math.floor(Math.random() * 5);
-        return baseCount + fallbackFluctuation;
+        console.warn('Error fetching listener count:', error);
+        
+        // Try to use cached value first
+        const cachedCount = localStorage.getItem('lastListenerCount');
+        const lastUpdate = localStorage.getItem('lastListenerUpdate');
+        
+        if (cachedCount && lastUpdate && (Date.now() - parseInt(lastUpdate)) < 300000) {
+            // Use cached value if less than 5 minutes old with smaller fluctuation
+            return parseInt(cachedCount) + Math.floor(Math.random() * 3) - 1;
+        }
+        
+        // Fallback to basic simulation if no cache or cache too old
+        const baseCount = 5;  // Base count (2 + 3 extra)
+        const hour = new Date().getHours();
+        const isPeakTime = hour >= 7 && hour <= 22;
+        return baseCount + (isPeakTime ? 2 : 0) + Math.floor(Math.random() * 3) - 1;
     }
 }
 
