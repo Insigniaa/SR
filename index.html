@@ -26,6 +26,7 @@
     </script>
 </head>
 <body>
+    <div class="scroll-progress" aria-hidden="true"></div>
     <div class="app-container">
         <nav class="main-nav">
             <div class="nav-logo">
@@ -39,20 +40,42 @@
 
         <main>
             <section class="hero">
-                <div class="hero-background"></div>
+                <div class="hero-background" style="background-image: url('https://placehold.co/1920x1080/333/FFF?text=Music')"></div>
                 <div class="hero-content">
                     <div class="live-badge">
                         <div class="pulse"></div>
                         Live
                     </div>
                     <div class="current-track">
-                        <div class="track-artwork">
-                            <img src="https://placehold.co/400x400/333/FFF?text=Music" alt="Current track">
+                        <div class="track-artwork no-cover">
+                            <img src="" alt="Album Cover" id="current-track-image" style="display: none;">
+                            <div class="music-wave">
+                                <span></span>
+                                <span></span>
+                                <span></span>
+                                <span></span>
+                                <span></span>
+                            </div>
                         </div>
                         <div class="track-details">
-                            <span class="now-playing-label">Now Playing</span>
-                            <h1>Loading...</h1>
-                            <p>Please wait...</p>
+                            <div class="now-playing-label">Now Playing</div>
+                            <h1 class="track-title">Loading...</h1>
+                            <p class="track-artist">Loading...</p>
+                            <div class="track-progress-container">
+                                <div class="track-progress">
+                                    <div class="track-progress-bar"></div>
+                                </div>
+                                <div class="track-time-info">
+                                    <div class="track-duration">
+                                        <i class="fas fa-music"></i>
+                                        <span class="duration">0:00</span>
+                                    </div>
+                                    <div class="time-remaining">
+                                        <i class="fas fa-hourglass-half"></i>
+                                        <span>0:00</span>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -62,13 +85,37 @@
                 <div class="container">
                     <div class="section-header">
                         <h2>Recently Played</h2>
-                        <button class="refresh-btn">
-                            <i class="fas fa-sync-alt"></i>
-                        </button>
+                        <div class="tracks-controls">
+                            <button class="refresh-btn">
+                                <i class="fas fa-sync-alt"></i>
+                            </button>
+                            <div class="track-view-toggle">
+                                <button class="view-btn active" data-view="grid">
+                                    <i class="fas fa-th"></i>
+                                </button>
+                                <button class="view-btn" data-view="list">
+                                    <i class="fas fa-list"></i>
+                                </button>
+                            </div>
+                        </div>
                     </div>
-                    <div class="tracks-grid">
+                    <div class="tracks-grid tracks-container">
                         <!-- Tracks will be populated here -->
                     </div>
+                </div>
+            </div>
+
+            <!-- Upcoming Tracks Section -->
+            <div class="upcoming-tracks">
+                <div class="container">
+                    <!-- Content will be populated by JavaScript -->
+                </div>
+            </div>
+
+            <!-- Radio Schedule Section -->
+            <div class="radio-schedule">
+                <div class="container">
+                    <!-- Content will be populated by JavaScript -->
                 </div>
             </div>
 
@@ -85,9 +132,6 @@
         </main>
 
         <div class="player-bar">
-            <div class="progress-bar">
-                <div class="progress"></div>
-            </div>
             <div class="player-content">
                 <div class="now-playing">
                     <img src="https://placehold.co/400x400/333/FFF?text=Music" alt="Current track" class="current-track-img">
@@ -96,18 +140,37 @@
                         <div class="track-artist">Please wait...</div>
                     </div>
                 </div>
-                <button class="play-pause-btn">
-                    <i class="fas fa-play"></i>
-                </button>
+                <div class="play-pause-wrapper">
+                    <button class="play-pause-btn">
+                        <i class="fas fa-play"></i>
+                    </button>
+                </div>
                 <div class="volume-control">
-                    <i class="fas fa-volume-up"></i>
-                    <div class="volume-slider">
-                        <input type="range" id="volumeSlider" min="0" max="100" value="80">
-                    </div>
+                    <i class="fas fa-volume-up volume-icon"></i>
+                    <input type="range" class="volume-slider" min="0" max="100" value="80">
                 </div>
             </div>
         </div>
     </div>
+
+    <template id="track-item-template">
+        <div class="track-item">
+            <div class="track-artwork no-cover">
+                <img src="" alt="Album Cover" style="display: none;">
+                <div class="music-wave">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </div>
+            </div>
+            <div class="track-info">
+                <h3 class="track-title"></h3>
+                <p class="track-artist"></p>
+            </div>
+        </div>
+    </template>
 
     <script src="script.js"></script>
 </body>

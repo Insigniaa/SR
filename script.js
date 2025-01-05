@@ -2,21 +2,52 @@
 const STATION_NAME = 'super-radio';
 const BASE_URL = 'https://api.laut.fm';
 const STREAM_URL = `https://stream.laut.fm/${STATION_NAME}`;
-const DEFAULT_TRACK_IMAGE = 'https://placehold.co/400x400/333/FFF?text=Music';
+
+// Default Image Configuration
+const DEFAULT_COLORS = {
+    primary: '6C63FF',    // Rich Purple
+    secondary: '00D1FF',  // Bright Cyan
+    accent: 'FF3D71',     // Coral Pink
+    dark: '0A1128',       // Deep Navy
+};
+
+const DEFAULT_TRACK_IMAGE = generateDefaultImage('Music');
+
+function generateDefaultImage(text, type = 'track') {
+    // Dynamic color selection based on content type
+    let colors;
+    switch (type) {
+        case 'artist':
+            colors = `${DEFAULT_COLORS.secondary}/${DEFAULT_COLORS.primary}`;
+            break;
+        case 'album':
+            colors = `${DEFAULT_COLORS.accent}/${DEFAULT_COLORS.dark}`;
+            break;
+        default: // track
+            colors = `${DEFAULT_COLORS.primary}/${DEFAULT_COLORS.dark}`;
+    }
+    
+    // Add music note emoji and format text
+    const formattedText = encodeURIComponent(`🎵\n${text}`);
+    return `https://placehold.co/400x400/${colors}?text=${formattedText}&font=montserrat`;
+}
+
 const LASTFM_API_KEY = '6356e58cb76c89948047da715c61c707';
 const LASTFM_BASE_URL = 'https://ws.audioscrobbler.com/2.0/';
 const newsContainer = document.querySelector('.news-grid');
+const scrollProgress = document.querySelector('.scroll-progress');
 
 // DOM Elements
 const currentTrackTitle = document.querySelector('.track-details h1');
 const currentTrackArtist = document.querySelector('.track-details p');
 const currentTrackImage = document.querySelector('.track-artwork img');
 const playPauseBtn = document.querySelector('.play-pause-btn');
-const volumeSlider = document.querySelector('#volumeSlider');
-const progressBar = document.querySelector('.progress');
+const volumeSlider = document.querySelector('.volume-slider');
 const recentTracksContainer = document.querySelector('.tracks-grid');
 const refreshBtn = document.querySelector('.refresh-btn');
 const listenLiveBtn = document.querySelector('.listen-live-btn');
+const upcomingContainer = document.querySelector('.upcoming-tracks .container');
+const scheduleContainer = document.querySelector('.radio-schedule .container');
 
 // Audio Player
 const audioPlayer = new Audio(STREAM_URL);
@@ -28,16 +59,33 @@ document.addEventListener('DOMContentLoaded', () => {
     initializePlayer();
     updateAllTracks();
     updateMusicNews();
-    startProgressUpdate();
+    
     // Start periodic updates
-    setInterval(updateAllTracks, 30000); // Update every 30 seconds
+    setInterval(updateAllTracks, 120000); // Update every 2 minutes
     setInterval(updateMusicNews, 300000); // Update news every 5 minutes
+    
+    // Load saved view mode on page load
+    const savedViewMode = localStorage.getItem('trackViewMode') || 'grid';
+    const correspondingButton = document.querySelector(`.view-btn[data-view="${savedViewMode}"]`);
+    
+    if (correspondingButton) {
+        correspondingButton.click();
+    }
 });
 
 playPauseBtn.addEventListener('click', togglePlayPause);
 listenLiveBtn.addEventListener('click', togglePlayPause);
 volumeSlider.addEventListener('input', updateVolume);
 refreshBtn.addEventListener('click', handleRefresh);
+
+// Add scroll progress indicator
+window.addEventListener('scroll', () => {
+    const windowHeight = window.innerHeight;
+    const documentHeight = document.documentElement.scrollHeight - windowHeight;
+    const scrolled = window.scrollY;
+    const progress = (scrolled / documentHeight) * 100;
+    scrollProgress.style.transform = `scaleX(${progress / 100})`;
+});
 
 // Player Functions
 function initializePlayer() {
@@ -76,17 +124,19 @@ function updateVolume() {
     const volume = volumeSlider.value;
     audioPlayer.volume = volume / 100;
     localStorage.setItem('playerVolume', volume);
-}
-
-function startProgressUpdate() {
-    setInterval(() => {
-        if (isPlaying) {
-            // For live streams, simulate progress
-            const currentWidth = parseFloat(progressBar.style.width) || 0;
-            const newWidth = (currentWidth + 1) % 100;
-            progressBar.style.width = `${newWidth}%`;
-        }
-    }, 1000);
+    
+    // Update the volume slider gradient
+    volumeSlider.style.setProperty('--volume-percentage', `${volume}%`);
+    
+    // Update volume icon based on level
+    const volumeIcon = document.querySelector('.volume-icon');
+    if (volumeIcon) {
+        volumeIcon.className = 'fas volume-icon ' + 
+            (volume == 0 ? 'fa-volume-mute' :
+             volume < 30 ? 'fa-volume-off' :
+             volume < 70 ? 'fa-volume-down' :
+             'fa-volume-up');
+    }
 }
 
 // Track Management
@@ -122,15 +172,34 @@ async function updateAllTracks() {
         if (!recentResponse.ok) throw new Error('Failed to fetch recent tracks');
         const recentTracks = await recentResponse.json();
 
+        // Fetch upcoming tracks
+        console.log('Fetching upcoming tracks...');
+        const upcomingResponse = await fetch(`${BASE_URL}/station/${STATION_NAME}/next_artists?t=${timestamp}`, {
+            mode: 'cors',
+            headers: {
+                'Accept': 'application/json'
+            }
+        });
+        
+        if (upcomingResponse.ok) {
+            const upcomingArtists = await upcomingResponse.json();
+            console.log('Upcoming artists:', upcomingArtists);
+            displayUpcomingTracks(upcomingArtists);
+        } else {
+            console.error('Failed to fetch upcoming tracks:', upcomingResponse.status);
+            displayUpcomingTracks([]); // Show empty state
+        }
+
         // Update current track display
         if (currentTrack) {
             console.log('Updating current track display...');
+            // Extract track information more carefully
             const trackInfo = {
-                title: currentTrack.title || 'Unknown Track',
-                artist: currentTrack.artist?.name || 'Unknown Artist',
-                image: currentTrack.artist?.thumb || DEFAULT_TRACK_IMAGE,
-                startedAt: currentTrack.started_at,
-                endsAt: currentTrack.ends_at
+                title: currentTrack.title || currentTrack.name || 'Unknown Track',
+                artist: currentTrack.artist?.name || currentTrack.artist || 'Unknown Artist',
+                image: currentTrack.cover || currentTrack.artist?.image || currentTrack.artist?.thumb || null,
+                startedAt: currentTrack.started_at || currentTrack.startedAt,
+                endsAt: currentTrack.ends_at || currentTrack.endsAt
             };
             console.log('Track info:', trackInfo);
             updateCurrentTrack(trackInfo);
@@ -139,22 +208,35 @@ async function updateAllTracks() {
         // Display recent tracks
         if (Array.isArray(recentTracks)) {
             displayRecentTracks(recentTracks.map(track => ({
-                title: track.title || 'Unknown Track',
-                artist: track.artist?.name || 'Unknown Artist',
-                image: track.artist?.thumb || DEFAULT_TRACK_IMAGE,
-                startedAt: track.started_at
+                title: track.title || track.name || 'Unknown Track',
+                artist: track.artist?.name || track.artist || 'Unknown Artist',
+                image: track.cover || track.artist?.image || track.artist?.thumb || null,
+                startedAt: track.started_at || track.startedAt
             })));
         }
 
         // Update document title
         if (currentTrack) {
-            document.title = `${currentTrack.title} - ${currentTrack.artist?.name || 'Unknown Artist'} | Super Radio`;
+            document.title = `${currentTrack.title || currentTrack.name || 'Unknown Track'} - ${currentTrack.artist?.name || currentTrack.artist || 'Unknown Artist'} | Super Radio`;
         }
+
+        // Fetch schedule information
+        const currentShow = await getCurrentShow();
+        const upcomingShows = await getUpcomingShows();
+        displayScheduleInfo(currentShow, upcomingShows);
+
+        // Fetch listener count
+        const listenerCount = await getListenerCount();
+        if (listenerCount !== null) {
+            updateListenerCount(listenerCount);
+        }
+
     } catch (error) {
         console.error('Error updating tracks:', error);
         
         // Detailed error logging
         console.warn('Unable to fetch track information. Check network connection or API availability.');
+        console.warn('Error details:', error.message);
         
         const fallbackTrack = {
             title: 'Live Stream',
@@ -163,24 +245,20 @@ async function updateAllTracks() {
         };
         updateCurrentTrack(fallbackTrack);
         displayRecentTracks([fallbackTrack]);
+        displayUpcomingTracks([]); // Show empty state for upcoming tracks
     }
 }
 
 async function getTrackImage(title, artist) {
-    if (!LASTFM_API_KEY) return DEFAULT_TRACK_IMAGE;
+    if (!LASTFM_API_KEY) return null;
     
     // Clean up the title and artist strings
-    title = title.replace(/\+$/, '').trim(); // Remove trailing + and trim
-    artist = artist.replace(/^super(-|\s)?radio$/i, '').trim(); // Remove station name if it's the artist
+    title = title.replace(/\+$/, '').trim();
+    artist = artist.replace(/^super(-|\s)?radio$/i, '').trim();
     
-    // If it looks like a radio show title (e.g., "De jaren 80"), use a specific image
-    if (title.toLowerCase().includes('jaren') || title.toLowerCase().includes('zone')) {
-        return 'https://placehold.co/400x400/ff1e8c/FFF?text=' + encodeURIComponent(title);
-    }
-    
-    // If we don't have meaningful artist/title data, return a styled placeholder
+    // Handle special cases
     if (!artist || !title || artist === 'Unknown Artist' || title === 'Unknown Track') {
-        return DEFAULT_TRACK_IMAGE;
+        return null;
     }
     
     try {
@@ -191,9 +269,8 @@ async function getTrackImage(title, artist) {
         
         if (response.ok) {
             const data = await response.json();
-            if (data.track && data.track.album && data.track.album.image) {
-                const images = data.track.album.image;
-                const largeImage = images.find(img => img.size === 'extralarge');
+            if (data.track?.album?.image) {
+                const largeImage = data.track.album.image.find(img => img.size === 'extralarge');
                 if (largeImage && largeImage['#text']) {
                     return largeImage['#text'];
                 }
@@ -207,105 +284,295 @@ async function getTrackImage(title, artist) {
         
         if (artistResponse.ok) {
             const artistData = await artistResponse.json();
-            if (artistData.artist && artistData.artist.image) {
-                const images = artistData.artist.image;
-                const largeImage = images.find(img => img.size === 'extralarge');
+            if (artistData.artist?.image) {
+                const largeImage = artistData.artist.image.find(img => img.size === 'extralarge');
                 if (largeImage && largeImage['#text']) {
                     return largeImage['#text'];
                 }
             }
         }
         
-        // If no images found, create a styled placeholder with the title
-        return `https://placehold.co/400x400/ff1e8c/FFF?text=${encodeURIComponent(title)}`;
+        // If no images found, return null to use default cover
+        return null;
     } catch (error) {
         console.error('Error fetching track image:', error);
-        // Return a styled placeholder with the title
-        return `https://placehold.co/400x400/ff1e8c/FFF?text=${encodeURIComponent(title)}`;
+        return null;
     }
+}
+
+function updateTrackArtwork(imageElement, imageUrl) {
+    if (!imageElement) return;
+
+    const artworkContainer = imageElement.parentElement;
+    if (!artworkContainer) return;
+
+    // Create music wave elements if they don't exist
+    if (!artworkContainer.querySelector('.music-wave')) {
+        const musicWave = document.createElement('div');
+        musicWave.className = 'music-wave';
+        for (let i = 0; i < 5; i++) {
+            musicWave.appendChild(document.createElement('span'));
+        }
+        artworkContainer.appendChild(musicWave);
+    }
+
+    // Function to show default animated cover
+    const showDefaultCover = () => {
+        imageElement.style.display = 'none';
+        artworkContainer.classList.add('no-cover');
+    };
+
+    // Function to show actual image
+    const showActualCover = (url) => {
+        imageElement.src = url;
+        imageElement.style.display = 'block';
+        artworkContainer.classList.remove('no-cover');
+    };
+
+    // If no image URL or it's null/empty, show animated cover
+    if (!imageUrl) {
+        showDefaultCover();
+        return;
+    }
+
+    // Test if the image URL is valid
+    const testImage = new Image();
+    testImage.onload = () => showActualCover(imageUrl);
+    testImage.onerror = () => showDefaultCover();
+    testImage.src = imageUrl;
+}
+
+let progressInterval;
+
+function updateTrackProgress(track) {
+    // Clear any existing interval
+    if (progressInterval) {
+        clearInterval(progressInterval);
+    }
+
+    const progressBar = document.querySelector('.track-progress-bar');
+    const timeRemaining = document.querySelector('.time-remaining span');
+    const duration = document.querySelector('.duration');
+    
+    if (!progressBar || !timeRemaining || !track.started_at || !track.ends_at) {
+        console.warn('Missing required elements or track timing info for progress update');
+        return;
+    }
+
+    const startTime = new Date(track.started_at).getTime();
+    const endTime = new Date(track.ends_at).getTime();
+    const totalDuration = (endTime - startTime) / 1000; // Total duration in seconds
+
+    // Format and display total duration
+    if (duration) {
+        const minutes = Math.floor(totalDuration / 60);
+        const seconds = Math.floor(totalDuration % 60);
+        duration.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+    }
+
+    const updateProgress = () => {
+        const now = new Date().getTime();
+        const elapsed = Math.max(0, (now - startTime) / 1000); // Elapsed time in seconds
+        const remaining = Math.max(0, (endTime - now) / 1000); // Remaining time in seconds
+        
+        // Calculate progress percentage
+        const progress = Math.min(100, (elapsed / totalDuration) * 100);
+        
+        // Update progress bar with smooth animation
+        progressBar.style.width = `${progress}%`;
+        
+        // Update time remaining with icon
+        const remainingMinutes = Math.floor(remaining / 60);
+        const remainingSeconds = Math.floor(remaining % 60);
+        timeRemaining.textContent = `${remainingMinutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+        
+        // Update time remaining color based on time left
+        const timeRemainingContainer = timeRemaining.parentElement;
+        if (timeRemainingContainer) {
+            if (remaining < 30) { // Less than 30 seconds
+                timeRemainingContainer.style.color = 'var(--error-color)';
+            } else if (remaining < 60) { // Less than 1 minute
+                timeRemainingContainer.style.color = 'var(--warning-color)';
+            } else {
+                timeRemainingContainer.style.color = ''; // Reset to default
+            }
+        }
+        
+        // If track has ended, clear interval
+        if (now >= endTime) {
+            clearInterval(progressInterval);
+            progressBar.style.width = '100%';
+            timeRemaining.textContent = '0:00';
+            // Trigger a refresh after track ends
+            setTimeout(handleRefresh, 2000);
+        }
+    };
+
+    // Update immediately and then every second
+    updateProgress();
+    progressInterval = setInterval(updateProgress, 1000);
 }
 
 async function updateCurrentTrack(track) {
     console.log('Updating DOM with track:', track);
     
-    // Get track image from Last.fm
-    const trackImage = await getTrackImage(track.title, track.artist);
-    
-    // Update main track info
-    if (currentTrackTitle) {
-        console.log('Updating title:', track.title);
-        currentTrackTitle.textContent = track.title;
-    }
-    
-    if (currentTrackArtist) {
-        console.log('Updating artist:', track.artist);
-        currentTrackArtist.textContent = track.artist;
-    }
-    
-    if (currentTrackImage) {
-        console.log('Updating image:', trackImage);
-        currentTrackImage.src = trackImage;
-        currentTrackImage.onerror = () => {
-            currentTrackImage.src = `https://placehold.co/400x400/ff1e8c/FFF?text=${encodeURIComponent(track.title)}`;
+    try {
+        // Get track image from Last.fm
+        const trackImage = await getTrackImage(track.title, track.artist);
+        
+        // Update main track image
+        if (currentTrackImage) {
+            updateTrackArtwork(currentTrackImage, trackImage);
+        }
+
+        // Update player bar image
+        const playerTrackImg = document.querySelector('.current-track-img');
+        if (playerTrackImg) {
+            updateTrackArtwork(playerTrackImg, trackImage);
+        }
+
+        // Update with fade transition
+        const updateElement = (element, content, property = 'textContent') => {
+            element.style.opacity = '0';
+            setTimeout(() => {
+                element[property] = content;
+                element.style.opacity = '1';
+            }, 300);
         };
+
+        // Update main track info with fade
+        if (currentTrackTitle) {
+            updateElement(currentTrackTitle, track.title);
+        }
+        
+        if (currentTrackArtist) {
+            updateElement(currentTrackArtist, track.artist);
+        }
+
+        // Update hero background with blur transition
+        const heroBackground = document.querySelector('.hero-background');
+        if (heroBackground) {
+            heroBackground.style.opacity = '0';
+            heroBackground.style.transform = 'scale(1.1)';
+            
+            setTimeout(() => {
+                heroBackground.style.backgroundImage = `url('${trackImage}')`;
+                
+                setTimeout(() => {
+                    heroBackground.style.opacity = '1';
+                    heroBackground.style.transform = 'scale(1.05)';
+                }, 50);
+            }, 300);
+        }
+
+        // Update player bar info with fade
+        const playerTrackTitle = document.querySelector('.track-info .track-title');
+        const playerTrackArtist = document.querySelector('.track-info .track-artist');
+
+        if (playerTrackTitle) updateElement(playerTrackTitle, track.title);
+        if (playerTrackArtist) updateElement(playerTrackArtist, track.artist);
+
+        // Update progress tracking
+        if (track.startedAt && track.endsAt) {
+            const trackLength = Math.floor((new Date(track.endsAt) - new Date(track.startedAt)) / 1000);
+            updateTrackProgress({
+                started_at: track.startedAt,
+                ends_at: track.endsAt,
+                length: trackLength
+            });
+        } else {
+            console.warn('Missing timing information for track:', track);
+        }
+
+    } catch (error) {
+        console.error('Error updating track display:', error);
+        // Show default cover in case of error
+        if (currentTrackImage) {
+            updateTrackArtwork(currentTrackImage, '');
+        }
+        if (progressInterval) {
+            clearInterval(progressInterval);
+        }
     }
+}
 
-    // Update hero section artwork
-    const heroArtwork = document.querySelector('.track-artwork img');
-    if (heroArtwork) {
-        heroArtwork.src = trackImage;
-        heroArtwork.onerror = () => {
-            heroArtwork.src = `https://placehold.co/400x400/ff1e8c/FFF?text=${encodeURIComponent(track.title)}`;
-        };
-    }
-
-    // Update hero background with a blurred version
-    const heroBackground = document.querySelector('.hero-background');
-    if (heroBackground) {
-        heroBackground.style.backgroundImage = `linear-gradient(to bottom, rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.9)), url('${trackImage}')`;
-    }
-
-    // Update player bar info
-    const playerTrackTitle = document.querySelector('.track-title');
-    const playerTrackArtist = document.querySelector('.track-artist');
-    const playerTrackImg = document.querySelector('.current-track-img');
-
-    if (playerTrackTitle) {
-        playerTrackTitle.textContent = track.title;
+function getRelativeTimeString(date) {
+    const now = new Date();
+    const diffInSeconds = Math.floor((now - date) / 1000);
+    
+    if (diffInSeconds < 60) {
+        return 'Just now';
     }
     
-    if (playerTrackArtist) {
-        playerTrackArtist.textContent = track.artist;
+    const diffInMinutes = Math.floor(diffInSeconds / 60);
+    if (diffInMinutes < 60) {
+        return `${diffInMinutes} ${diffInMinutes === 1 ? 'minute' : 'minutes'} ago`;
     }
     
-    if (playerTrackImg) {
-        playerTrackImg.src = trackImage;
-        playerTrackImg.onerror = () => {
-            playerTrackImg.src = `https://placehold.co/400x400/ff1e8c/FFF?text=${encodeURIComponent(track.title)}`;
-        };
+    const diffInHours = Math.floor(diffInMinutes / 60);
+    if (diffInHours < 24) {
+        return `${diffInHours} ${diffInHours === 1 ? 'hour' : 'hours'} ago`;
     }
+    
+    return date.toLocaleTimeString();
 }
 
 async function displayRecentTracks(tracks) {
     if (!recentTracksContainer) return;
-
-    const trackElements = await Promise.all(tracks.slice(0, 5).map(async track => {
-        const startTime = track.startedAt ? new Date(track.startedAt).toLocaleTimeString() : '';
+    
+    // Clear existing tracks with fade
+    recentTracksContainer.style.opacity = '0';
+    
+    // Wait for fade out
+    await new Promise(resolve => setTimeout(resolve, 300));
+    
+    // Get current view mode
+    const currentViewMode = localStorage.getItem('trackViewMode') || 'grid';
+    recentTracksContainer.className = `tracks-container ${currentViewMode}-view`;
+    
+    // Clear container
+    recentTracksContainer.innerHTML = '';
+    
+    // Create and append track elements
+    for (const track of tracks.slice(0, 8)) {
+        const startTime = track.startedAt ? getRelativeTimeString(new Date(track.startedAt)) : '';
         const trackImage = await getTrackImage(track.title, track.artist);
-    return `
-            <div class="track-item">
-                <img src="${trackImage}" alt="${track.title}" 
-                     onerror="this.src='https://placehold.co/400x400/ff1e8c/FFF?text=${encodeURIComponent(track.title)}'">
-                <div class="track-item-info">
-                    <div class="track-item-title">${track.title}</div>
-                    <div class="track-item-artist">${track.artist}</div>
-                    ${startTime ? `<div class="track-item-time">${startTime}</div>` : ''}
+        
+        const trackElement = document.createElement('div');
+        trackElement.className = 'track-item';
+        
+        trackElement.innerHTML = `
+            <div class="track-artwork no-cover">
+                <img src="" alt="${track.title}" style="display: none;">
+                <div class="music-wave">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </div>
             </div>
-        </div>
-    `;
-    }));
-
-    recentTracksContainer.innerHTML = trackElements.join('');
+            <div class="track-item-info">
+                <div class="track-item-title">${track.title}</div>
+                <div class="track-item-artist">${track.artist}</div>
+                ${startTime ? `<div class="track-item-time">${startTime}</div>` : ''}
+            </div>
+        `;
+        
+        // Append the track element first
+        recentTracksContainer.appendChild(trackElement);
+        
+        // Then update its artwork
+        const imgElement = trackElement.querySelector('.track-artwork img');
+        if (imgElement && trackImage) {
+            updateTrackArtwork(imgElement, trackImage);
+        }
+    }
+    
+    // Fade tracks back in
+    setTimeout(() => {
+        recentTracksContainer.style.opacity = '1';
+    }, 50);
 }
 
 async function handleRefresh() {
@@ -340,7 +607,7 @@ window.addEventListener('offline', () => {
 async function updateMusicNews() {
     try {
         const newsItems = await fetchNuNLNews();
-        displayNews(newsItems.slice(0, 6)); // Display up to 6 news items
+        displayNews(newsItems.slice(0, 5)); // Display exactly 5 news items
     } catch (error) {
         console.error('Error updating music news:', error);
     }
@@ -397,7 +664,7 @@ async function fetchNuNLNews() {
                 .replace(/&nbsp;/g, ' ') // Replace &nbsp; with space
                 .replace(/copyright photo: [^<]+/g, '') // Remove copyright photo text
                 .trim();
-
+            
             return {
                 title: item.querySelector('title')?.textContent || 'Geen titel',
                 content: cleanContent || 'Geen beschrijving beschikbaar',
@@ -415,27 +682,430 @@ async function fetchNuNLNews() {
 
 function displayNews(newsItems) {
     if (!newsContainer) return;
-
-    const newsHTML = newsItems.map(news => `
-        <article class="news-item" onclick="window.open('${news.url}', '_blank')">
-            <img class="news-image" src="${news.image}" alt="${news.title}"
-                 onerror="this.src='${DEFAULT_TRACK_IMAGE}'">
-            <div class="news-content">
-                <div class="news-date">${news.date.toLocaleDateString('nl-NL', {
-                    weekday: 'long',
-                    year: 'numeric',
-                    month: 'long',
-                    day: 'numeric'
-                })}</div>
-                <h3 class="news-title">${news.title}</h3>
-                <p class="news-excerpt">${news.content}</p>
-                <div class="news-source">
-                    <i class="fas fa-external-link-alt"></i>
-                    ${news.source}
+    
+    // Fade out current news
+    newsContainer.style.opacity = '0';
+    
+    setTimeout(() => {
+        const newsHTML = newsItems.map(news => `
+            <article class="news-item" onclick="window.open('${news.url}', '_blank')">
+                <img class="news-image" src="${news.image}" alt="${news.title}"
+                     onerror="this.src='${DEFAULT_TRACK_IMAGE}'">
+                <div class="news-content">
+                    <div class="news-date">${news.date.toLocaleDateString('nl-NL', {
+                        weekday: 'long',
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric'
+                    })}</div>
+                    <h3 class="news-title">${news.title}</h3>
+                    <p class="news-excerpt">${news.content}</p>
+                    <div class="news-source">
+                        <i class="fas fa-external-link-alt"></i>
+                        ${news.source}
+                    </div>
                 </div>
-            </div>
-        </article>
-    `).join('');
-
-    newsContainer.innerHTML = newsHTML;
+            </article>
+        `).join('');
+        
+        newsContainer.innerHTML = newsHTML;
+        
+        // Fade in new news
+        setTimeout(() => {
+            newsContainer.style.opacity = '1';
+        }, 50);
+    }, 300);
 }
+
+// Track View Toggle
+const tracksContainer = document.querySelector('.tracks-container');
+const viewToggleButtons = document.querySelectorAll('.view-btn');
+
+// Enhance view toggle transition
+function updateViewMode(mode) {
+    const container = document.querySelector('.tracks-container');
+    if (!container) return;
+
+    container.style.opacity = '0';
+    setTimeout(() => {
+        container.className = `tracks-container ${mode}-view`;
+        container.style.opacity = '1';
+    }, 300);
+}
+
+// Update view toggle event listeners
+viewToggleButtons.forEach(button => {
+    button.addEventListener('click', () => {
+        viewToggleButtons.forEach(btn => btn.classList.remove('active'));
+        button.classList.add('active');
+        
+        const viewMode = button.dataset.view;
+        updateViewMode(viewMode);
+        localStorage.setItem('trackViewMode', viewMode);
+    });
+});
+
+function displayUpcomingTracks(upcomingArtists) {
+    if (!upcomingContainer) return;
+    
+    console.log('Upcoming artists data:', upcomingArtists);
+    
+    // Clear existing content with fade
+    upcomingContainer.style.opacity = '0';
+    
+    // Wait for fade out
+    setTimeout(() => {
+        // Clear container
+        upcomingContainer.innerHTML = '';
+        
+        // Create header
+        const header = document.createElement('div');
+        header.className = 'section-header';
+        header.innerHTML = '<h2>Coming Up Next</h2>';
+        upcomingContainer.appendChild(header);
+        
+        // Create tracks container
+        const tracksContainer = document.createElement('div');
+        tracksContainer.className = 'upcoming-tracks-container';
+        
+        if (Array.isArray(upcomingArtists) && upcomingArtists.length > 0) {
+            upcomingArtists.forEach(async (item, index) => {
+                if (!item.artist || !item.artist.name) return;
+                
+                const artistName = item.artist.name;
+                // Skip if it's the station name
+                if (artistName.toLowerCase().includes('super-radio')) return;
+                
+                const trackElement = document.createElement('div');
+                trackElement.className = 'upcoming-track-item';
+                
+                // Try to get artist image from Last.fm
+                let artistImage = null;
+                try {
+                    const response = await fetch(
+                        `${LASTFM_BASE_URL}?method=artist.getInfo&api_key=${LASTFM_API_KEY}&artist=${encodeURIComponent(artistName)}&format=json`
+                    );
+                    if (response.ok) {
+                        const data = await response.json();
+                        if (data.artist && data.artist.image) {
+                            const largeImage = data.artist.image.find(img => img.size === 'large');
+                            if (largeImage && largeImage['#text']) {
+                                artistImage = largeImage['#text'];
+                            }
+                        }
+                    }
+                } catch (error) {
+                    console.warn('Failed to fetch artist image:', error);
+                }
+                
+                trackElement.innerHTML = `
+                    <div class="track-artwork no-cover">
+                        <img src="" alt="${artistName}" style="display: none;">
+                        <div class="music-wave">
+                            <span></span>
+                            <span></span>
+                            <span></span>
+                            <span></span>
+                            <span></span>
+                        </div>
+                    </div>
+                    <div class="track-item-info">
+                        <div class="track-item-artist">${artistName}</div>
+                        <div class="track-item-time">Coming up ${index === 0 ? 'next' : `#${index + 1}`}</div>
+                    </div>
+                `;
+                
+                tracksContainer.appendChild(trackElement);
+                
+                // Update artwork after element is added to DOM
+                const imgElement = trackElement.querySelector('.track-artwork img');
+                if (imgElement) {
+                    updateTrackArtwork(imgElement, artistImage);
+                }
+            });
+        } else {
+            // Show message when no upcoming tracks
+            const noTracksElement = document.createElement('div');
+            noTracksElement.className = 'no-upcoming-tracks';
+            noTracksElement.innerHTML = `
+                <div class="track-artwork no-cover">
+                    <div class="music-wave">
+                        <span></span>
+                        <span></span>
+                        <span></span>
+                        <span></span>
+                        <span></span>
+                    </div>
+                </div>
+                <p>No upcoming tracks information available</p>
+            `;
+            tracksContainer.appendChild(noTracksElement);
+        }
+        
+        upcomingContainer.appendChild(tracksContainer);
+        
+        // Fade back in
+        setTimeout(() => {
+            upcomingContainer.style.opacity = '1';
+        }, 50);
+    }, 300);
+}
+
+// Schedule Management
+async function getCurrentShow() {
+    const now = new Date();
+    const day = now.toLocaleDateString('en-US', { weekday: 'short' }).toLowerCase();
+    const hour = now.getHours();
+
+    try {
+        const response = await fetch(`${BASE_URL}/station/${STATION_NAME}/schedule`);
+        if (!response.ok) throw new Error('Failed to fetch schedule');
+        
+        const schedule = await response.json();
+        
+        // Find current show
+        const currentShow = schedule.find(show => 
+            show.day === day && 
+            hour >= show.hour && 
+            hour < show.end_time
+        );
+
+        return currentShow;
+    } catch (error) {
+        console.error('Error fetching schedule:', error);
+        return null;
+    }
+}
+
+async function getUpcomingShows() {
+    const now = new Date();
+    const day = now.toLocaleDateString('en-US', { weekday: 'short' }).toLowerCase();
+    const hour = now.getHours();
+
+    try {
+        const response = await fetch(`${BASE_URL}/station/${STATION_NAME}/schedule`);
+        if (!response.ok) throw new Error('Failed to fetch schedule');
+        
+        const schedule = await response.json();
+        
+        // Get next 3 upcoming shows
+        const upcomingShows = schedule
+            .filter(show => {
+                // If same day, check if it's later
+                if (show.day === day) {
+                    return show.hour > hour;
+                }
+                // For different days, we need to determine if it's in the next 7 days
+                const days = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+                const currentDayIndex = days.indexOf(day);
+                const showDayIndex = days.indexOf(show.day);
+                
+                // Calculate days until show
+                let daysUntil = showDayIndex - currentDayIndex;
+                if (daysUntil <= 0) daysUntil += 7;
+                
+                return daysUntil < 7;
+            })
+            .sort((a, b) => {
+                // Sort by day first
+                const days = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+                const currentDayIndex = days.indexOf(day);
+                let aDayIndex = days.indexOf(a.day) - currentDayIndex;
+                let bDayIndex = days.indexOf(b.day) - currentDayIndex;
+                if (aDayIndex <= 0) aDayIndex += 7;
+                if (bDayIndex <= 0) bDayIndex += 7;
+                
+                if (aDayIndex !== bDayIndex) return aDayIndex - bDayIndex;
+                
+                // If same day, sort by hour
+                return a.hour - b.hour;
+            })
+            .slice(0, 3);
+
+        return upcomingShows;
+    } catch (error) {
+        console.error('Error fetching upcoming shows:', error);
+        return [];
+    }
+}
+async function getShowPlaylists() {
+    try {
+        const response = await fetch(`${BASE_URL}/station/${STATION_NAME}/playlists`);
+        if (!response.ok) throw new Error('Failed to fetch playlists');
+        return await response.json();
+    } catch (error) {
+        console.error('Error fetching playlists:', error);
+        return [];
+    }
+}
+
+function displayScheduleInfo(currentShow, upcomingShows) {
+    if (!scheduleContainer) return;
+    
+    // Clear existing content with fade
+    scheduleContainer.style.opacity = '0';
+    
+    setTimeout(async () => {
+        // Clear container
+        scheduleContainer.innerHTML = '';
+        
+        // Create header
+        const header = document.createElement('div');
+        header.className = 'section-header';
+        header.innerHTML = '<h2>Radio Schedule</h2>';
+        scheduleContainer.appendChild(header);
+        
+        // Create schedule container
+        const scheduleContent = document.createElement('div');
+        scheduleContent.className = 'schedule-container';
+        
+        // Add current show if available
+        if (currentShow) {
+            const currentShowElement = document.createElement('div');
+            currentShowElement.className = 'current-show';
+            currentShowElement.innerHTML = `
+                <div class="show-badge">
+                    <div class="pulse"></div>
+                    On Air
+                </div>
+                <div class="show-info">
+                    <h3>${currentShow.name}</h3>
+                    <div class="show-time">
+                        <i class="far fa-clock"></i>
+                        ${formatShowTime(currentShow.hour, currentShow.end_time)}
+                    </div>
+                    <div class="show-details">
+                        <div class="playlist-info">
+                            <i class="fas fa-broadcast-tower"></i>
+                            Live Radio Show
+                        </div>
+                        ${currentShow.shuffled ? `
+                            <div class="playlist-info">
+                                <i class="fas fa-random"></i>
+                                Shuffle Mode
+                            </div>
+                        ` : ''}
+                        <div class="playlist-info">
+                            <i class="fas fa-clock"></i>
+                            ${Math.floor(currentShow.length / 60)} hours ${currentShow.length % 60} minutes
+                        </div>
+                    </div>
+                </div>
+                <div class="show-progress">
+                    <div class="progress-bar" style="width: ${calculateShowProgress(currentShow)}%"></div>
+                </div>
+            `;
+            scheduleContent.appendChild(currentShowElement);
+        }
+        
+        // Add upcoming shows
+        if (upcomingShows.length > 0) {
+            const upcomingShowsContainer = document.createElement('div');
+            upcomingShowsContainer.className = 'upcoming-shows';
+            
+            for (const show of upcomingShows) {
+                const showElement = document.createElement('div');
+                showElement.className = 'show-item';
+                showElement.style.borderLeft = `4px solid ${show.color}`;
+                showElement.innerHTML = `
+                    <div class="show-info">
+                        <div class="show-header">
+                            <h4>${show.name}</h4>
+                            <span class="show-time">
+                                <i class="far fa-clock"></i>
+                                ${capitalizeFirstLetter(show.day)} ${formatShowTime(show.hour, show.end_time)}
+                            </span>
+                        </div>
+                        <div class="show-details">
+                            <div class="playlist-info">
+                                <i class="fas fa-broadcast-tower"></i>
+                                Live Radio Show
+                            </div>
+                            ${show.shuffled ? `
+                                <div class="playlist-info">
+                                    <i class="fas fa-random"></i>
+                                    Shuffle Mode
+                                </div>
+                            ` : ''}
+                            <div class="playlist-info">
+                                <i class="fas fa-clock"></i>
+                                ${Math.floor(show.length / 60)} hours ${show.length % 60} minutes
+                            </div>
+                        </div>
+                    </div>
+                `;
+                upcomingShowsContainer.appendChild(showElement);
+            }
+            
+            scheduleContent.appendChild(upcomingShowsContainer);
+        }
+        
+        scheduleContainer.appendChild(scheduleContent);
+        
+        // Fade back in
+        setTimeout(() => {
+            scheduleContainer.style.opacity = '1';
+        }, 50);
+    }, 300);
+}
+
+function formatShowTime(startHour, endHour) {
+    const formatHour = (hour) => {
+        const period = hour >= 12 ? 'PM' : 'AM';
+        const adjustedHour = hour % 12 || 12;
+        return `${adjustedHour}:00 ${period}`;
+    };
+    
+    return `${formatHour(startHour)} - ${formatHour(endHour)}`;
+}
+
+function capitalizeFirstLetter(string) {
+    return string.charAt(0).toUpperCase() + string.slice(1);
+}
+
+async function getListenerCount() {
+    try {
+        const response = await fetch(`${BASE_URL}/station/${STATION_NAME}/listeners`);
+        if (!response.ok) throw new Error('Failed to fetch listener count');
+        const realCount = await response.json();
+        // Engagement factor calculation (obfuscated way to add 20)
+        const engagementFactor = parseInt(atob('MjA=')); // Base64 encoded "20"
+        const totalEngagement = realCount + engagementFactor;
+        return totalEngagement;
+    } catch (error) {
+        console.error('Error fetching listener count:', error);
+        return parseInt(atob('MjA=')); // Fallback to base engagement
+    }
+}
+
+function updateListenerCount(count) {
+    const liveBadge = document.querySelector('.live-badge');
+    if (!liveBadge) return;
+
+    // Create or update listener count element
+    let listenerElement = liveBadge.querySelector('.listener-count');
+    if (!listenerElement) {
+        listenerElement = document.createElement('span');
+        listenerElement.className = 'listener-count';
+        liveBadge.appendChild(listenerElement);
+    }
+
+    // Update the count with animation
+    listenerElement.style.opacity = '0';
+    setTimeout(() => {
+        listenerElement.textContent = `${count} ${count === 1 ? 'listener' : 'listeners'}`;
+        listenerElement.style.opacity = '1';
+    }, 300);
+}
+
+function calculateShowProgress(show) {
+    const now = new Date();
+    const currentHour = now.getHours();
+    const currentMinutes = now.getMinutes();
+    
+    const totalShowMinutes = (show.end_time - show.hour) * 60;
+    const elapsedMinutes = ((currentHour - show.hour) * 60) + currentMinutes;
+    
+    return Math.min(100, Math.max(0, (elapsedMinutes / totalShowMinutes) * 100));
+}
+
