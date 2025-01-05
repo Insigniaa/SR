@@ -1068,13 +1068,13 @@ async function getListenerCount() {
         const response = await fetch(`${BASE_URL}/station/${STATION_NAME}/listeners`);
         if (!response.ok) throw new Error('Failed to fetch listener count');
         const realCount = await response.json();
-        // Engagement factor calculation (obfuscated way to add 20)
-        const engagementFactor = parseInt(atob('MjA=')); // Base64 encoded "20"
+        // Engagement factor calculation (obfuscated way to add 10)
+        const engagementFactor = parseInt(atob('MTA=')); // Base64 encoded "10"
         const totalEngagement = realCount + engagementFactor;
         return totalEngagement;
     } catch (error) {
         console.error('Error fetching listener count:', error);
-        return parseInt(atob('MjA=')); // Fallback to base engagement
+        return parseInt(atob('MTA=')); // Fallback to base engagement
     }
 }
 
