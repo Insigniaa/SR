@@ -47,7 +47,7 @@ const recentTracksContainer = document.querySelector('.tracks-grid');
 const refreshBtn = document.querySelector('.refresh-btn');
 const listenLiveBtn = document.querySelector('.listen-live-btn');
 const upcomingContainer = document.querySelector('.upcoming-tracks .container');
-const scheduleContainer = document.querySelector('.radio-schedule .container');
+const scheduleContainer = document.querySelector('.schedule .container');
 
 // Audio Player
 const audioPlayer = new Audio(STREAM_URL);
@@ -80,11 +80,55 @@ refreshBtn.addEventListener('click', handleRefresh);
 
 // Add scroll progress indicator
 window.addEventListener('scroll', () => {
+    const scrollProgress = document.querySelector('.scroll-progress');
+    if (!scrollProgress) return;
+    
     const windowHeight = window.innerHeight;
     const documentHeight = document.documentElement.scrollHeight - windowHeight;
     const scrolled = window.scrollY;
     const progress = (scrolled / documentHeight) * 100;
     scrollProgress.style.transform = `scaleX(${progress / 100})`;
+});
+
+// Keyboard Shortcuts
+document.addEventListener('keydown', (e) => {
+    // Ignore if user is typing in an input
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+    
+    switch (e.key.toLowerCase()) {
+        case ' ':  // Spacebar
+            e.preventDefault();
+            togglePlayPause();
+            break;
+        case 'g':
+            document.querySelector('.view-btn[data-view="grid"]').click();
+            break;
+        case 'l':
+            document.querySelector('.view-btn[data-view="list"]').click();
+            break;
+        case 'r':
+            handleRefresh();
+            break;
+        case 'arrowup':
+            e.preventDefault();
+            const newVolume = Math.min(100, parseInt(volumeSlider.value) + 5);
+            volumeSlider.value = newVolume;
+            updateVolume();
+            break;
+        case 'arrowdown':
+            e.preventDefault();
+            const lowerVolume = Math.max(0, parseInt(volumeSlider.value) - 5);
+            volumeSlider.value = lowerVolume;
+            updateVolume();
+            break;
+        case 'm':
+            volumeSlider.value = volumeSlider.value === '0' ? localStorage.getItem('lastVolume') || '80' : '0';
+            if (volumeSlider.value !== '0') {
+                localStorage.setItem('lastVolume', volumeSlider.value);
+            }
+            updateVolume();
+            break;
+    }
 });
 
 // Player Functions
@@ -125,8 +169,17 @@ function updateVolume() {
     audioPlayer.volume = volume / 100;
     localStorage.setItem('playerVolume', volume);
     
-    // Update the volume slider gradient
-    volumeSlider.style.setProperty('--volume-percentage', `${volume}%`);
+    // Update the volume slider tooltip
+    const volumeControl = document.querySelector('.volume-control');
+    let tooltip = volumeControl.querySelector('.volume-tooltip');
+    
+    if (!tooltip) {
+        tooltip = document.createElement('div');
+        tooltip.className = 'volume-tooltip';
+        volumeControl.appendChild(tooltip);
+    }
+    
+    tooltip.textContent = `Volume: ${volume}%`;
     
     // Update volume icon based on level
     const volumeIcon = document.querySelector('.volume-icon');
@@ -142,12 +195,12 @@ function updateVolume() {
 // Track Management
 async function updateAllTracks() {
     try {
-        const timestamp = new Date().getTime(); // Add timestamp for cache busting
+        const timestamp = new Date().getTime();
         console.log('Fetching current song...', timestamp);
         
         // Direct API calls without CORS proxy
         const currentResponse = await fetch(`${BASE_URL}/station/${STATION_NAME}/current_song?t=${timestamp}`, {
-            mode: 'cors', // Enable CORS
+            mode: 'cors',
             headers: {
                 'Accept': 'application/json'
             }
@@ -192,16 +245,14 @@ async function updateAllTracks() {
 
         // Update current track display
         if (currentTrack) {
-            console.log('Updating current track display...');
-            // Extract track information more carefully
             const trackInfo = {
-                title: currentTrack.title || currentTrack.name || 'Unknown Track',
+                title: currentTrack.title || 'Unknown Track',
                 artist: currentTrack.artist?.name || currentTrack.artist || 'Unknown Artist',
-                image: currentTrack.cover || currentTrack.artist?.image || currentTrack.artist?.thumb || null,
-                startedAt: currentTrack.started_at || currentTrack.startedAt,
-                endsAt: currentTrack.ends_at || currentTrack.endsAt
+                image: currentTrack.cover || null,
+                started_at: currentTrack.started_at,
+                ends_at: currentTrack.ends_at,
+                length: currentTrack.length
             };
-            console.log('Track info:', trackInfo);
             updateCurrentTrack(trackInfo);
         }
 
@@ -306,6 +357,9 @@ function updateTrackArtwork(imageElement, imageUrl) {
     const artworkContainer = imageElement.parentElement;
     if (!artworkContainer) return;
 
+    // Add loading state
+    artworkContainer.classList.add('loading');
+
     // Create music wave elements if they don't exist
     if (!artworkContainer.querySelector('.music-wave')) {
         const musicWave = document.createElement('div');
@@ -320,13 +374,14 @@ function updateTrackArtwork(imageElement, imageUrl) {
     const showDefaultCover = () => {
         imageElement.style.display = 'none';
         artworkContainer.classList.add('no-cover');
+        artworkContainer.classList.remove('loading');
     };
 
     // Function to show actual image
     const showActualCover = (url) => {
         imageElement.src = url;
         imageElement.style.display = 'block';
-        artworkContainer.classList.remove('no-cover');
+        artworkContainer.classList.remove('no-cover', 'loading');
     };
 
     // If no image URL or it's null/empty, show animated cover
@@ -344,156 +399,100 @@ function updateTrackArtwork(imageElement, imageUrl) {
 
 let progressInterval;
 
-function updateTrackProgress(track) {
-    // Clear any existing interval
-    if (progressInterval) {
-        clearInterval(progressInterval);
+function formatTime(seconds, isCountdown = false) {
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = Math.floor(seconds % 60);
+    if (isCountdown) {
+        return `-${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
     }
+    return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+}
 
-    const progressBar = document.querySelector('.track-progress-bar');
-    const timeRemaining = document.querySelector('.time-remaining span');
-    const duration = document.querySelector('.duration');
+function updateTrackProgress(track) {
+    const progressBar = document.querySelector('.progress');
+    const currentTimeSpan = document.querySelector('.current-time');
+    const durationSpan = document.querySelector('.duration');
     
-    if (!progressBar || !timeRemaining || !track.started_at || !track.ends_at) {
-        console.warn('Missing required elements or track timing info for progress update');
+    if (!progressBar || !currentTimeSpan || !durationSpan || !track.started_at || !track.ends_at) {
+        console.warn('Missing elements or track timing info');
         return;
     }
-
-    const startTime = new Date(track.started_at).getTime();
-    const endTime = new Date(track.ends_at).getTime();
-    const totalDuration = (endTime - startTime) / 1000; // Total duration in seconds
-
-    // Format and display total duration
-    if (duration) {
-        const minutes = Math.floor(totalDuration / 60);
-        const seconds = Math.floor(totalDuration % 60);
-        duration.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+    
+    // Clear any existing interval
+    if (window.progressInterval) {
+        clearInterval(window.progressInterval);
     }
-
-    const updateProgress = () => {
-        const now = new Date().getTime();
-        const elapsed = Math.max(0, (now - startTime) / 1000); // Elapsed time in seconds
-        const remaining = Math.max(0, (endTime - now) / 1000); // Remaining time in seconds
+    
+    const startTime = new Date(track.started_at);
+    const endTime = new Date(track.ends_at);
+    const totalDuration = (endTime - startTime) / 1000; // Duration in seconds
+    
+    function updateProgress() {
+        const now = new Date();
+        const elapsed = Math.max(0, (now - startTime) / 1000);
+        const remaining = Math.max(0, totalDuration - elapsed);
         
-        // Calculate progress percentage
+        // Update progress bar width
         const progress = Math.min(100, (elapsed / totalDuration) * 100);
-        
-        // Update progress bar with smooth animation
         progressBar.style.width = `${progress}%`;
         
-        // Update time remaining with icon
-        const remainingMinutes = Math.floor(remaining / 60);
-        const remainingSeconds = Math.floor(remaining % 60);
-        timeRemaining.textContent = `${remainingMinutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+        // Update time displays
+        currentTimeSpan.textContent = formatTime(remaining, true); // Countdown with minus sign
+        durationSpan.textContent = formatTime(totalDuration); // Total duration
         
-        // Update time remaining color based on time left
-        const timeRemainingContainer = timeRemaining.parentElement;
-        if (timeRemainingContainer) {
-            if (remaining < 30) { // Less than 30 seconds
-                timeRemainingContainer.style.color = 'var(--error-color)';
-            } else if (remaining < 60) { // Less than 1 minute
-                timeRemainingContainer.style.color = 'var(--warning-color)';
-            } else {
-                timeRemainingContainer.style.color = ''; // Reset to default
-            }
+        // If track has ended, clear interval and refresh
+        if (elapsed >= totalDuration) {
+            clearInterval(window.progressInterval);
+            setTimeout(updateAllTracks, 2000);
         }
-        
-        // If track has ended, clear interval
-        if (now >= endTime) {
-            clearInterval(progressInterval);
-            progressBar.style.width = '100%';
-            timeRemaining.textContent = '0:00';
-            // Trigger a refresh after track ends
-            setTimeout(handleRefresh, 2000);
-        }
-    };
-
+    }
+    
     // Update immediately and then every second
     updateProgress();
-    progressInterval = setInterval(updateProgress, 1000);
+    window.progressInterval = setInterval(updateProgress, 1000);
 }
 
 async function updateCurrentTrack(track) {
-    console.log('Updating DOM with track:', track);
+    // Update main track display
+    const mainTitle = document.querySelector('.hero .track-title');
+    const mainArtist = document.querySelector('.hero .track-artist');
+    const mainImage = document.querySelector('.hero .track-img');
+    const mainDefaultCover = document.querySelector('.hero .default-cover');
     
-    try {
-        // Get track image from Last.fm
-        const trackImage = await getTrackImage(track.title, track.artist);
-        
-        // Update main track image
-        if (currentTrackImage) {
-            updateTrackArtwork(currentTrackImage, trackImage);
-        }
-
-        // Update player bar image
-        const playerTrackImg = document.querySelector('.current-track-img');
-        if (playerTrackImg) {
-            updateTrackArtwork(playerTrackImg, trackImage);
-        }
-
-        // Update with fade transition
-        const updateElement = (element, content, property = 'textContent') => {
-            element.style.opacity = '0';
-            setTimeout(() => {
-                element[property] = content;
-                element.style.opacity = '1';
-            }, 300);
+    if (mainTitle) mainTitle.textContent = track.title;
+    if (mainArtist) mainArtist.textContent = track.artist;
+    
+    // Update player bar
+    const playerTitle = document.querySelector('.player-bar .track-title');
+    const playerArtist = document.querySelector('.player-bar .track-artist');
+    const playerImage = document.querySelector('.player-bar .track-img');
+    const playerDefaultCover = document.querySelector('.player-bar .default-cover');
+    
+    if (playerTitle) playerTitle.textContent = track.title;
+    if (playerArtist) playerArtist.textContent = track.artist;
+    
+    // Update images if available
+    if (track.image) {
+        const updateImage = (img, defaultCover) => {
+            if (!img) return;
+            img.src = track.image;
+            img.onload = () => {
+                img.classList.add('visible');
+                if (defaultCover) defaultCover.style.display = 'none';
+            };
         };
-
-        // Update main track info with fade
-        if (currentTrackTitle) {
-            updateElement(currentTrackTitle, track.title);
-        }
         
-        if (currentTrackArtist) {
-            updateElement(currentTrackArtist, track.artist);
-        }
-
-        // Update hero background with blur transition
-        const heroBackground = document.querySelector('.hero-background');
-        if (heroBackground) {
-            heroBackground.style.opacity = '0';
-            heroBackground.style.transform = 'scale(1.1)';
-            
-            setTimeout(() => {
-                heroBackground.style.backgroundImage = `url('${trackImage}')`;
-                
-                setTimeout(() => {
-                    heroBackground.style.opacity = '1';
-                    heroBackground.style.transform = 'scale(1.05)';
-                }, 50);
-            }, 300);
-        }
-
-        // Update player bar info with fade
-        const playerTrackTitle = document.querySelector('.track-info .track-title');
-        const playerTrackArtist = document.querySelector('.track-info .track-artist');
-
-        if (playerTrackTitle) updateElement(playerTrackTitle, track.title);
-        if (playerTrackArtist) updateElement(playerTrackArtist, track.artist);
-
-        // Update progress tracking
-        if (track.startedAt && track.endsAt) {
-            const trackLength = Math.floor((new Date(track.endsAt) - new Date(track.startedAt)) / 1000);
-            updateTrackProgress({
-                started_at: track.startedAt,
-                ends_at: track.endsAt,
-                length: trackLength
-            });
-        } else {
-            console.warn('Missing timing information for track:', track);
-        }
-
-    } catch (error) {
-        console.error('Error updating track display:', error);
-        // Show default cover in case of error
-        if (currentTrackImage) {
-            updateTrackArtwork(currentTrackImage, '');
-        }
-        if (progressInterval) {
-            clearInterval(progressInterval);
-        }
+        updateImage(mainImage, mainDefaultCover);
+        updateImage(playerImage, playerDefaultCover);
     }
+    
+    // Update progress bar with track timing information
+    if (track.started_at && track.ends_at) {
+        updateTrackProgress(track);
+    }
+    
+    // Update document title
+    document.title = `${track.title} - ${track.artist} | Super Radio`;
 }
 
 function getRelativeTimeString(date) {
@@ -518,61 +517,58 @@ function getRelativeTimeString(date) {
 }
 
 async function displayRecentTracks(tracks) {
-    if (!recentTracksContainer) return;
+    const container = document.querySelector('.tracks-grid');
+    if (!container) return;
     
-    // Clear existing tracks with fade
-    recentTracksContainer.style.opacity = '0';
+    container.innerHTML = '';
     
-    // Wait for fade out
-    await new Promise(resolve => setTimeout(resolve, 300));
+    // Limit to 8 tracks
+    const recentTracks = tracks.slice(0, 8);
     
-    // Get current view mode
-    const currentViewMode = localStorage.getItem('trackViewMode') || 'grid';
-    recentTracksContainer.className = `tracks-container ${currentViewMode}-view`;
-    
-    // Clear container
-    recentTracksContainer.innerHTML = '';
-    
-    // Create and append track elements
-    for (const track of tracks.slice(0, 8)) {
-        const startTime = track.startedAt ? getRelativeTimeString(new Date(track.startedAt)) : '';
-        const trackImage = await getTrackImage(track.title, track.artist);
-        
+    recentTracks.forEach(track => {
         const trackElement = document.createElement('div');
         trackElement.className = 'track-item';
         
-        trackElement.innerHTML = `
-            <div class="track-artwork no-cover">
-                <img src="" alt="${track.title}" style="display: none;">
-                <div class="music-wave">
-                    <span></span>
-                    <span></span>
-                    <span></span>
-                    <span></span>
-                    <span></span>
-                </div>
-            </div>
-            <div class="track-item-info">
-                <div class="track-item-title">${track.title}</div>
-                <div class="track-item-artist">${track.artist}</div>
-                ${startTime ? `<div class="track-item-time">${startTime}</div>` : ''}
+        const artwork = document.createElement('div');
+        artwork.className = 'track-artwork';
+        
+        const img = document.createElement('img');
+        img.className = 'track-img';
+        img.alt = `${track.title} by ${track.artist}`;
+        
+        const defaultCover = document.createElement('div');
+        defaultCover.className = 'default-cover';
+        defaultCover.innerHTML = `
+            <div class="music-wave">
+                <span></span><span></span><span></span>
+                <span></span><span></span>
             </div>
         `;
         
-        // Append the track element first
-        recentTracksContainer.appendChild(trackElement);
+        artwork.appendChild(img);
+        artwork.appendChild(defaultCover);
         
-        // Then update its artwork
-        const imgElement = trackElement.querySelector('.track-artwork img');
-        if (imgElement && trackImage) {
-            updateTrackArtwork(imgElement, trackImage);
+        const info = document.createElement('div');
+        info.className = 'track-info';
+        info.innerHTML = `
+            <div class="track-title">${track.title}</div>
+            <div class="track-artist">${track.artist}</div>
+            <div class="track-time">${formatTimestamp(track.startedAt)}</div>
+        `;
+        
+        trackElement.appendChild(artwork);
+        trackElement.appendChild(info);
+        container.appendChild(trackElement);
+        
+        // Load track image
+        if (track.image) {
+            img.src = track.image;
+            img.onload = () => {
+                img.classList.add('visible');
+                defaultCover.style.display = 'none';
+            };
         }
-    }
-    
-    // Fade tracks back in
-    setTimeout(() => {
-        recentTracksContainer.style.opacity = '1';
-    }, 50);
+    });
 }
 
 async function handleRefresh() {
@@ -607,7 +603,7 @@ window.addEventListener('offline', () => {
 async function updateMusicNews() {
     try {
         const newsItems = await fetchNuNLNews();
-        displayNews(newsItems.slice(0, 5)); // Display exactly 5 news items
+        displayNews(newsItems.slice(0, 6)); // Display exactly 5 news items
     } catch (error) {
         console.error('Error updating music news:', error);
     }
@@ -616,7 +612,7 @@ async function updateMusicNews() {
 async function fetchNuNLNews() {
     try {
         // Use a CORS proxy to fetch the RSS feed
-        const response = await fetch('https://api.allorigins.win/raw?url=' + encodeURIComponent('https://www.nu.nl/rss/Achterklap'));
+        const response = await fetch('https://api.allorigins.win/raw?url=' + encodeURIComponent('https://www.nu.nl/rss/muziek'));
         if (!response.ok) return [];
         
         const text = await response.text();
@@ -670,7 +666,7 @@ async function fetchNuNLNews() {
                 content: cleanContent || 'Geen beschrijving beschikbaar',
                 image: imageUrl,
                 date: new Date(item.querySelector('pubDate')?.textContent || new Date()),
-                source: 'NU.nl Achterklap',
+                source: 'NU.nl Muziek',
                 url: item.querySelector('link')?.textContent || '#'
             };
         });
@@ -681,32 +677,45 @@ async function fetchNuNLNews() {
 }
 
 function displayNews(newsItems) {
-    if (!newsContainer) return;
+    const newsContainer = document.querySelector('.news-grid');
+    if (!newsContainer) {
+        console.warn('News container not found');
+        return;
+    }
     
     // Fade out current news
     newsContainer.style.opacity = '0';
     
     setTimeout(() => {
-        const newsHTML = newsItems.map(news => `
-            <article class="news-item" onclick="window.open('${news.url}', '_blank')">
-                <img class="news-image" src="${news.image}" alt="${news.title}"
-                     onerror="this.src='${DEFAULT_TRACK_IMAGE}'">
-                <div class="news-content">
-                    <div class="news-date">${news.date.toLocaleDateString('nl-NL', {
-                        weekday: 'long',
-                        year: 'numeric',
-                        month: 'long',
-                        day: 'numeric'
-                    })}</div>
-                    <h3 class="news-title">${news.title}</h3>
-                    <p class="news-excerpt">${news.content}</p>
-                    <div class="news-source">
-                        <i class="fas fa-external-link-alt"></i>
-                        ${news.source}
+        const newsHTML = newsItems.map(news => {
+            // Format the date in Dutch
+            const formattedDate = news.date.toLocaleDateString('nl-NL', {
+                day: 'numeric',
+                month: 'short'
+            }).toUpperCase();
+            
+            // Truncate content if it's too long
+            const maxLength = 120;
+            const truncatedContent = news.content.length > maxLength ? 
+                news.content.substring(0, maxLength) + '...' : 
+                news.content;
+            
+            return `
+                <article class="news-item" onclick="window.open('${news.url}', '_blank')">
+                    <img class="news-image" src="${news.image}" alt="${news.title}"
+                         onerror="this.src='${DEFAULT_TRACK_IMAGE}'">
+                    <div class="news-content">
+                        <div class="news-date">${formattedDate}</div>
+                        <h3 class="news-title">${news.title}</h3>
+                        <p class="news-excerpt">${truncatedContent}</p>
+                        <div class="news-source">
+                            <i class="fas fa-arrow-right"></i>
+                            <span>Lees artikel</span>
+                        </div>
                     </div>
-                </div>
-            </article>
-        `).join('');
+                </article>
+            `;
+        }).join('');
         
         newsContainer.innerHTML = newsHTML;
         
@@ -718,30 +727,44 @@ function displayNews(newsItems) {
 }
 
 // Track View Toggle
-const tracksContainer = document.querySelector('.tracks-container');
-const viewToggleButtons = document.querySelectorAll('.view-btn');
-
-// Enhance view toggle transition
-function updateViewMode(mode) {
-    const container = document.querySelector('.tracks-container');
-    if (!container) return;
-
-    container.style.opacity = '0';
-    setTimeout(() => {
-        container.className = `tracks-container ${mode}-view`;
-        container.style.opacity = '1';
-    }, 300);
-}
-
-// Update view toggle event listeners
-viewToggleButtons.forEach(button => {
-    button.addEventListener('click', () => {
-        viewToggleButtons.forEach(btn => btn.classList.remove('active'));
-        button.classList.add('active');
-        
-        const viewMode = button.dataset.view;
-        updateViewMode(viewMode);
-        localStorage.setItem('trackViewMode', viewMode);
+document.addEventListener('DOMContentLoaded', () => {
+    const viewToggleButtons = document.querySelectorAll('.view-btn');
+    const tracksContainer = document.querySelector('.tracks-container');
+    
+    // Set initial view mode
+    const savedViewMode = localStorage.getItem('trackViewMode') || 'grid';
+    if (tracksContainer) {
+        tracksContainer.className = `tracks-container ${savedViewMode}-view`;
+        // Set active button
+        viewToggleButtons.forEach(btn => {
+            if (btn.dataset.view === savedViewMode) {
+                btn.classList.add('active');
+            }
+        });
+    }
+    
+    // View toggle event listeners
+    viewToggleButtons.forEach(button => {
+        button.addEventListener('click', () => {
+            const viewMode = button.dataset.view;
+            
+            // Remove active class from all buttons
+            viewToggleButtons.forEach(btn => btn.classList.remove('active'));
+            // Add active class to clicked button
+            button.classList.add('active');
+            
+            // Update view with animation
+            if (tracksContainer) {
+                tracksContainer.style.opacity = '0';
+                setTimeout(() => {
+                    tracksContainer.className = `tracks-container ${viewMode}-view`;
+                    tracksContainer.style.opacity = '1';
+                }, 300);
+            }
+            
+            // Save preference
+            localStorage.setItem('trackViewMode', viewMode);
+        });
     });
 });
 
@@ -853,16 +876,15 @@ function displayUpcomingTracks(upcomingArtists) {
 
 // Schedule Management
 async function getCurrentShow() {
-    const now = new Date();
-    const day = now.toLocaleDateString('en-US', { weekday: 'short' }).toLowerCase();
-    const hour = now.getHours();
-
     try {
         const response = await fetch(`${BASE_URL}/station/${STATION_NAME}/schedule`);
         if (!response.ok) throw new Error('Failed to fetch schedule');
         
         const schedule = await response.json();
-        
+        const now = new Date();
+        const day = now.toLocaleDateString('en-US', { weekday: 'short' }).toLowerCase();
+        const hour = now.getHours();
+
         // Find current show
         const currentShow = schedule.find(show => 
             show.day === day && 
@@ -872,62 +894,62 @@ async function getCurrentShow() {
 
         return currentShow;
     } catch (error) {
-        console.error('Error fetching schedule:', error);
+        console.error('Error fetching current show:', error);
         return null;
     }
 }
 
 async function getUpcomingShows() {
-    const now = new Date();
-    const day = now.toLocaleDateString('en-US', { weekday: 'short' }).toLowerCase();
-    const hour = now.getHours();
-
     try {
         const response = await fetch(`${BASE_URL}/station/${STATION_NAME}/schedule`);
         if (!response.ok) throw new Error('Failed to fetch schedule');
         
         const schedule = await response.json();
+        const now = new Date();
+        const currentHour = now.getHours();
+        const currentMinutes = now.getMinutes();
+        const day = now.toLocaleDateString('en-US', { weekday: 'short' }).toLowerCase();
         
-        // Get next 3 upcoming shows
-        const upcomingShows = schedule
-            .filter(show => {
-                // If same day, check if it's later
-                if (show.day === day) {
-                    return show.hour > hour;
-                }
-                // For different days, we need to determine if it's in the next 7 days
-                const days = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
-                const currentDayIndex = days.indexOf(day);
-                const showDayIndex = days.indexOf(show.day);
-                
-                // Calculate days until show
-                let daysUntil = showDayIndex - currentDayIndex;
-                if (daysUntil <= 0) daysUntil += 7;
-                
-                return daysUntil < 7;
-            })
-            .sort((a, b) => {
-                // Sort by day first
-                const days = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
-                const currentDayIndex = days.indexOf(day);
-                let aDayIndex = days.indexOf(a.day) - currentDayIndex;
-                let bDayIndex = days.indexOf(b.day) - currentDayIndex;
-                if (aDayIndex <= 0) aDayIndex += 7;
-                if (bDayIndex <= 0) bDayIndex += 7;
-                
-                if (aDayIndex !== bDayIndex) return aDayIndex - bDayIndex;
-                
-                // If same day, sort by hour
-                return a.hour - b.hour;
-            })
-            .slice(0, 3);
-
-        return upcomingShows;
+        // Get shows for today
+        const todayShows = schedule.filter(show => show.day === day);
+        
+        // Sort shows by time
+        todayShows.sort((a, b) => {
+            // Convert show times to minutes since midnight for easier comparison
+            const aTime = a.hour * 60;
+            const bTime = b.hour * 60;
+            const currentTime = currentHour * 60 + currentMinutes;
+            
+            // Adjust times for shows past midnight
+            const aAdjusted = aTime < currentTime ? aTime + 24 * 60 : aTime;
+            const bAdjusted = bTime < currentTime ? bTime + 24 * 60 : bTime;
+            
+            return aAdjusted - bAdjusted;
+        });
+        
+        // Get only upcoming shows
+        const upcomingShows = todayShows.filter(show => {
+            const showTime = show.hour * 60;
+            const currentTime = currentHour * 60 + currentMinutes;
+            
+            // Include shows that start in the future
+            // For shows after midnight, adjust the comparison
+            if (show.hour < 6) { // Early morning shows (00:00 - 05:59)
+                return (currentHour >= 22) || (currentHour < show.hour);
+            } else {
+                return showTime > currentTime;
+            }
+        });
+        
+        // Return next 3 upcoming shows
+        return upcomingShows.slice(0, 3);
+        
     } catch (error) {
         console.error('Error fetching upcoming shows:', error);
         return [];
     }
 }
+
 async function getShowPlaylists() {
     try {
         const response = await fetch(`${BASE_URL}/station/${STATION_NAME}/playlists`);
@@ -952,7 +974,7 @@ function displayScheduleInfo(currentShow, upcomingShows) {
         // Create header
         const header = document.createElement('div');
         header.className = 'section-header';
-        header.innerHTML = '<h2>Radio Schedule</h2>';
+        header.innerHTML = '<h2>Radio Programma</h2>';
         scheduleContainer.appendChild(header);
         
         // Create schedule container
@@ -979,16 +1001,6 @@ function displayScheduleInfo(currentShow, upcomingShows) {
                             <i class="fas fa-broadcast-tower"></i>
                             Live Radio Show
                         </div>
-                        ${currentShow.shuffled ? `
-                            <div class="playlist-info">
-                                <i class="fas fa-random"></i>
-                                Shuffle Mode
-                            </div>
-                        ` : ''}
-                        <div class="playlist-info">
-                            <i class="fas fa-clock"></i>
-                            ${Math.floor(currentShow.length / 60)} hours ${currentShow.length % 60} minutes
-                        </div>
                     </div>
                 </div>
                 <div class="show-progress">
@@ -1006,31 +1018,20 @@ function displayScheduleInfo(currentShow, upcomingShows) {
             for (const show of upcomingShows) {
                 const showElement = document.createElement('div');
                 showElement.className = 'show-item';
-                showElement.style.borderLeft = `4px solid ${show.color}`;
+                showElement.style.borderLeft = `4px solid ${show.color || '#6C63FF'}`;
                 showElement.innerHTML = `
-                    <div class="show-info">
-                        <div class="show-header">
-                            <h4>${show.name}</h4>
-                            <span class="show-time">
-                                <i class="far fa-clock"></i>
-                                ${capitalizeFirstLetter(show.day)} ${formatShowTime(show.hour, show.end_time)}
-                            </span>
-                        </div>
-                        <div class="show-details">
-                            <div class="playlist-info">
-                                <i class="fas fa-broadcast-tower"></i>
-                                Live Radio Show
-                            </div>
-                            ${show.shuffled ? `
-                                <div class="playlist-info">
-                                    <i class="fas fa-random"></i>
-                                    Shuffle Mode
-                                </div>
-                            ` : ''}
-                            <div class="playlist-info">
-                                <i class="fas fa-clock"></i>
-                                ${Math.floor(show.length / 60)} hours ${show.length % 60} minutes
-                            </div>
+                    <div class="show-header">
+                        <h4>${show.name}</h4>
+                        <span class="show-time">
+                            <i class="far fa-clock"></i>
+                            ${formatShowTime(show.hour, show.end_time)}
+                            <span class="time-until"></span>
+                        </span>
+                    </div>
+                    <div class="show-details">
+                        <div class="playlist-info">
+                            <i class="fas fa-broadcast-tower"></i>
+                            Live Radio Show
                         </div>
                     </div>
                 `;
@@ -1042,6 +1043,9 @@ function displayScheduleInfo(currentShow, upcomingShows) {
         
         scheduleContainer.appendChild(scheduleContent);
         
+        // Update time-until for all shows
+        updateTimeUntil();
+        
         // Fade back in
         setTimeout(() => {
             scheduleContainer.style.opacity = '1';
@@ -1051,125 +1055,220 @@ function displayScheduleInfo(currentShow, upcomingShows) {
 
 function formatShowTime(startHour, endHour) {
     const formatHour = (hour) => {
-        const period = hour >= 12 ? 'PM' : 'AM';
-        const adjustedHour = hour % 12 || 12;
-        return `${adjustedHour}:00 ${period}`;
+        return `${hour.toString().padStart(2, '0')}:00`;
     };
     
     return `${formatHour(startHour)} - ${formatHour(endHour)}`;
 }
 
 function capitalizeFirstLetter(string) {
-    return string.charAt(0).toUpperCase() + string.slice(1);
+    const days = {
+        'sun': 'Zondag',
+        'mon': 'Maandag',
+        'tue': 'Dinsdag',
+        'wed': 'Woensdag',
+        'thu': 'Donderdag',
+        'fri': 'Vrijdag',
+        'sat': 'Zaterdag'
+    };
+    return days[string] || string;
 }
 
 async function getListenerCount() {
     try {
+        const now = new Date();
+        const timestamp = now.getTime();
+        
+        // Check if we have a recent cached total (less than 5 minutes old)
+        const cachedCount = localStorage.getItem('lastListenerCount');
+        const lastUpdate = localStorage.getItem('lastListenerUpdate');
+        const weatherSeed = localStorage.getItem('weatherSeed');
+        const lastWeatherUpdate = localStorage.getItem('lastWeatherUpdate');
+        
+        // If we have a recent cache (less than 5 minutes old), use it
+        if (cachedCount && lastUpdate && (timestamp - parseInt(lastUpdate)) < 300000) {
+            // Add tiny fluctuation (-1, 0, or +1) only every 30 seconds
+            const halfMinuteBlock = Math.floor(timestamp / 30000);
+            const lastHalfMinuteBlock = localStorage.getItem('lastFluctuationBlock');
+            
+            if (lastHalfMinuteBlock && halfMinuteBlock === parseInt(lastHalfMinuteBlock)) {
+                return parseInt(cachedCount);
+            }
+            
+            // Store current block
+            localStorage.setItem('lastFluctuationBlock', halfMinuteBlock);
+            
+            // Consistent fluctuation based on timestamp
+            const fluctuation = Math.round(Math.sin(halfMinuteBlock) * 1);
+            return parseInt(cachedCount) + fluctuation;
+        }
+        
         // Try to get real listener count
         const response = await fetch(`${BASE_URL}/station/${STATION_NAME}/listeners`);
         if (!response.ok) throw new Error('Failed to fetch listener count');
         const realCount = await response.json();
         
         // Get current date/time info
-        const now = new Date();
         const hour = now.getHours();
-        const day = now.getDay(); // 0 = Sunday, 6 = Saturday
+        const minute = now.getMinutes();
+        const day = now.getDay();
         const month = now.getMonth();
+        const date = now.getDate();
         
-        // Base engagement (much lower)
-        let baseEngagement = 5; // Default base (2 + 3 extra)
+        // Base engagement (max 50 listeners)
+        let baseEngagement = 3; // Lower base count from 5 to 3
         
-        // Time-based patterns (much lower numbers)
+        // Detailed time-based patterns (reduced numbers)
         const timePatterns = {
-            earlyMorning: hour >= 5 && hour < 7 ? 1 : 0,     // Early risers
-            morningRush: hour >= 7 && hour < 9 ? 2 : 0,      // Morning commute
-            workDay: hour >= 9 && hour < 16 ? 1 : 0,         // Work hours
-            eveningRush: hour >= 16 && hour < 19 ? 2 : 0,    // Evening commute
-            primeTime: hour >= 19 && hour < 23 ? 3 : 0,      // Prime time
-            lateNight: hour >= 23 || hour < 5 ? 1 : 0        // Late night
+            nightOwl: hour >= 0 && hour < 5 ? 1 : 0,      // Night owls
+            earlyBird: hour >= 5 && hour < 7 ? 1 : 0,     // Early birds reduced from 2
+            morningRush: hour >= 7 && hour < 9 ? 3 : 0,   // Morning commute reduced from 4
+            morningWork: hour >= 9 && hour < 12 ? 2 : 0,  // Morning work reduced from 3
+            lunchBreak: hour >= 12 && hour < 14 ? 3 : 0,  // Lunch break peak reduced from 4
+            afternoon: hour >= 14 && hour < 16 ? 2 : 0,   // Afternoon work reduced from 3
+            eveningRush: hour >= 16 && hour < 19 ? 3 : 0, // Evening commute/dinner reduced from 5
+            primeTime: hour >= 19 && hour < 23 ? 4 : 0,   // Prime time reduced from 6
+            lateNight: hour >= 23 ? 1 : 0                 // Late night reduced from 2
         };
         
         // Apply the most relevant time pattern
         baseEngagement += Object.values(timePatterns).find(value => value > 0) || 0;
         
-        // Day of week factors (smaller boosts)
+        // Minute-based micro-patterns (reduced adjustments)
+        if (minute >= 55 || minute <= 5) {  // Hour transitions
+            baseEngagement += 1;  // People checking new programs
+        } else if (minute >= 25 && minute <= 35) {  // Mid-hour peaks
+            baseEngagement += 1;
+        }
+        
+        // Day of week factors (reduced multipliers)
         const dayFactors = {
-            weekend: (day === 0 || day === 6) ? 1.2 : 1,     // 20% boost on weekends
+            weekend: (day === 0 || day === 6) ? 1.15 : 1,    // 15% boost on weekends
             friday: day === 5 ? 1.1 : 1,                     // 10% boost on Fridays
-            monday: day === 1 ? 0.9 : 1                      // 10% reduction on Mondays
+            monday: day === 1 ? 0.95 : 1,                    // 5% reduction on Mondays
+            wednesday: day === 3 ? 1.05 : 1                  // 5% boost on Wednesdays
         };
         
         // Apply day factors
         const dayMultiplier = Object.values(dayFactors).reduce((acc, val) => acc * val, 1);
         baseEngagement = Math.round(baseEngagement * dayMultiplier);
         
-        // Seasonal patterns (reduced variations)
+        // Seasonal patterns (reduced multipliers)
         const seasonalFactors = {
-            winter: (month === 11 || month === 0 || month === 1) ? 1.1 : 1,   // 10% boost in winter
-            summer: (month >= 6 && month <= 8) ? 0.9 : 1                      // 10% reduction in summer
+            winter: (month === 11 || month === 0 || month === 1) ? 1.1 : 1,    // 10% boost in winter
+            summer: (month >= 6 && month <= 8) ? 0.9 : 1,                      // 10% reduction in summer
+            spring: (month >= 2 && month <= 4) ? 1.05 : 1,                     // 5% boost in spring
+            autumn: (month >= 9 && month <= 10) ? 1.1 : 1                      // 10% boost in autumn
         };
         
         // Apply seasonal factors
         const seasonMultiplier = Object.values(seasonalFactors).reduce((acc, val) => acc * val, 1);
         baseEngagement = Math.round(baseEngagement * seasonMultiplier);
         
-        // Random fluctuation (smaller ranges)
-        const fluctuation = () => {
-            const rand = Math.random();
-            if (rand < 0.7) {  // 70% chance of very small change
-                return Math.floor(Math.random() * 3) - 1;     // -1 to +1
-            } else if (rand < 0.9) {  // 20% chance of small change
-                return Math.floor(Math.random() * 3) - 1;     // -1 to +1
-            } else {  // 10% chance of medium change
-                return Math.floor(Math.random() * 3) - 1;     // -1 to +1
-            }
-        };
-        
-        // Special events boost (reduced multipliers)
+        // Special events and holidays (reduced multipliers)
         const specialEvents = [
-            { month: 11, day: 25, multiplier: 1.2 },  // Christmas
-            { month: 11, day: 31, multiplier: 1.3 }   // New Year's Eve
+            // Dutch holidays
+            { month: 11, day: 25, multiplier: 1.2, name: 'Christmas' },           // Christmas
+            { month: 11, day: 26, multiplier: 1.15, name: 'Boxing Day' },         // Boxing Day
+            { month: 11, day: 31, multiplier: 1.25, name: 'New Years Eve' },      // New Year's Eve
+            { month: 3, day: 27, multiplier: 1.1, name: 'Easter' },               // Easter (approximate)
+            { month: 4, day: 27, multiplier: 1.2, name: 'Kings Day' },            // King's Day
+            { month: 11, day: 5, multiplier: 1.15, name: 'Sinterklaas' },         // Sinterklaas
+            // Summer events
+            { month: 6, day: 21, multiplier: 1.1, name: 'Summer Solstice' },      // Summer Solstice
+            { month: 7, day: 15, multiplier: 1.05, name: 'Summer Vacation' },     // Mid-summer
+            // Special music days
+            { month: 5, day: 21, multiplier: 1.15, name: 'World Music Day' },     // World Music Day
+            { month: 9, day: 13, multiplier: 1.1, name: 'Positive Music Day' }    // Positive Music Day
         ];
         
-        // Check for special events
+        // Check for special events (with date range support)
         const specialEventMultiplier = specialEvents.reduce((acc, event) => {
-            if (month === event.month && now.getDate() === event.day) {
-                return acc * event.multiplier;
+            // Check if current date matches event
+            if (month === event.month && Math.abs(date - event.day) <= 1) { // Include day before/after
+                const proximity = 1 - Math.abs(date - event.day) * 0.1; // Reduced effect on adjacent days
+                return acc * (1 + (event.multiplier - 1) * proximity);
             }
             return acc;
         }, 1);
         
         baseEngagement = Math.round(baseEngagement * specialEventMultiplier);
         
-        // Combine real listeners with simulated engagement (keeping stacking)
-        const totalEngagement = Math.max(
-            realCount + baseEngagement + fluctuation(),
-            Math.ceil(baseEngagement * 0.8)  // Never drop below 80% of base
+        // Weather simulation (reduced effects, stable for 1 hour)
+        const hourBlock = Math.floor(timestamp / 3600000); // Current hour block
+        
+        let currentWeatherEffect;
+        if (weatherSeed && lastWeatherUpdate && hourBlock === parseInt(lastWeatherUpdate)) {
+            // Use cached weather
+            currentWeatherEffect = parseFloat(weatherSeed);
+        } else {
+            // Generate new weather (stable for this hour)
+            const hourSeed = Math.sin(hourBlock) * 10000;
+            const weatherRand = Math.abs((hourSeed - Math.floor(hourSeed)));
+            
+            if (weatherRand < 0.3) currentWeatherEffect = 1.05;      // 30% chance of "rainy" weather (5% boost)
+            else if (weatherRand < 0.6) currentWeatherEffect = 0.95; // 30% chance of "sunny" weather (5% reduction)
+            else currentWeatherEffect = 1;                           // 40% chance of "normal" weather
+            
+            // Cache weather
+            localStorage.setItem('weatherSeed', currentWeatherEffect);
+            localStorage.setItem('lastWeatherUpdate', hourBlock);
+        }
+        
+        baseEngagement = Math.round(baseEngagement * currentWeatherEffect);
+        
+        // Ensure base engagement never exceeds 50
+        baseEngagement = Math.min(baseEngagement, 50);
+        
+        // Combine real listeners with simulated engagement
+        let totalEngagement = Math.max(
+            realCount + baseEngagement,
+            Math.ceil(baseEngagement * 0.7)  // Lower minimum to 70% of base (was 0.9)
         );
         
-        // Cache the result for rapid subsequent calls
+        // Final cap at 50 fake listeners
+        if (totalEngagement > realCount + 50) {
+            totalEngagement = realCount + 50;
+        }
+        
+        // Cache the result
         localStorage.setItem('lastListenerCount', totalEngagement);
-        localStorage.setItem('lastListenerUpdate', now.getTime());
+        localStorage.setItem('lastListenerUpdate', timestamp);
+        
+        // Log engagement factors for debugging
+        if (process.env.NODE_ENV === 'development') {
+            console.debug('Listener Engagement Factors:', {
+                realCount,
+                baseEngagement,
+                timePattern: Object.entries(timePatterns).find(([_, value]) => value > 0)?.[0],
+                dayFactors: Object.entries(dayFactors).filter(([_, value]) => value !== 1).map(([key]) => key),
+                seasonalFactors: Object.entries(seasonalFactors).filter(([_, value]) => value !== 1).map(([key]) => key),
+                specialEvents: specialEvents.filter(event => month === event.month && Math.abs(date - event.day) <= 1).map(e => e.name),
+                weather: currentWeatherEffect,
+                totalEngagement,
+                fakeListeners: totalEngagement - realCount
+            });
+        }
         
         return totalEngagement;
         
     } catch (error) {
         console.warn('Error fetching listener count:', error);
         
-        // Try to use cached value first
+        // Use cached value if available
         const cachedCount = localStorage.getItem('lastListenerCount');
-        const lastUpdate = localStorage.getItem('lastListenerUpdate');
-        
-        if (cachedCount && lastUpdate && (Date.now() - parseInt(lastUpdate)) < 300000) {
-            // Use cached value if less than 5 minutes old with smaller fluctuation
-            return parseInt(cachedCount) + Math.floor(Math.random() * 3) - 1;
+        if (cachedCount) {
+            return parseInt(cachedCount);
         }
         
-        // Fallback to basic simulation if no cache or cache too old
-        const baseCount = 5;  // Base count (2 + 3 extra)
+        // Final fallback with stable number
         const hour = new Date().getHours();
         const isPeakTime = hour >= 7 && hour <= 22;
-        return baseCount + (isPeakTime ? 2 : 0) + Math.floor(Math.random() * 3) - 1;
+        const isRushHour = (hour >= 7 && hour <= 9) || (hour >= 16 && hour <= 18);
+        
+        return Math.min(50, 5 + 
+               (isPeakTime ? 2 : 0) + 
+               (isRushHour ? 1 : 0));
     }
 }
 
@@ -1188,7 +1287,7 @@ function updateListenerCount(count) {
     // Update the count with animation
     listenerElement.style.opacity = '0';
     setTimeout(() => {
-        listenerElement.textContent = `${count} ${count === 1 ? 'listener' : 'listeners'}`;
+        listenerElement.textContent = `${count} ${count === 1 ? 'luisteraar' : 'luisteraars'}`;
         listenerElement.style.opacity = '1';
     }, 300);
 }
@@ -1203,4 +1302,74 @@ function calculateShowProgress(show) {
     
     return Math.min(100, Math.max(0, (elapsedMinutes / totalShowMinutes) * 100));
 }
+
+function formatTimestamp(timestamp) {
+    if (!timestamp) return '';
+    const date = new Date(timestamp);
+    const now = new Date();
+    const diff = now - date;
+    
+    if (diff < 60000) return 'Zojuist';
+    if (diff < 3600000) return `${Math.floor(diff / 60000)}m geleden`;
+    if (diff < 86400000) return `${Math.floor(diff / 3600000)}u geleden`;
+    return date.toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit', hour12: false });
+}
+
+// Update time until next shows
+function updateTimeUntil() {
+    const now = new Date();
+    const timeUntilElements = document.querySelectorAll('.time-until');
+    
+    timeUntilElements.forEach((element) => {
+        const showTimeText = element.closest('.show-time').textContent;
+        const timeMatch = showTimeText.match(/(\d{2}):(\d{2})/);
+        if (!timeMatch) return;
+        
+        const [hours, minutes] = timeMatch.slice(1).map(Number);
+        
+        let showDate = new Date();
+        showDate.setHours(hours, minutes, 0);
+        
+        // Als de showtijd eerder is dan nu, is het voor morgen
+        if (showDate < now) {
+            showDate.setDate(showDate.getDate() + 1);
+        }
+        
+        const timeDiff = showDate - now;
+        const hoursUntil = Math.floor(timeDiff / (1000 * 60 * 60));
+        const minutesUntil = Math.floor((timeDiff % (1000 * 60 * 60)) / (1000 * 60));
+        
+        // Nederlandse tijdweergave
+        let timeText;
+        if (hoursUntil === 0) {
+            if (minutesUntil === 1) {
+                timeText = `(begint over 1 minuut)`;
+            } else {
+                timeText = `(begint over ${minutesUntil} minuten)`;
+            }
+        } else if (hoursUntil === 1) {
+            if (minutesUntil === 0) {
+                timeText = `(begint over 1 uur)`;
+            } else if (minutesUntil === 1) {
+                timeText = `(begint over 1 uur en 1 minuut)`;
+            } else {
+                timeText = `(begint over 1 uur en ${minutesUntil} minuten)`;
+            }
+        } else {
+            if (minutesUntil === 0) {
+                timeText = `(begint over ${hoursUntil} uur)`;
+            } else if (minutesUntil === 1) {
+                timeText = `(begint over ${hoursUntil} uur en 1 minuut)`;
+            } else {
+                timeText = `(begint over ${hoursUntil} uur en ${minutesUntil} minuten)`;
+            }
+        }
+        
+        element.textContent = ` ${timeText}`;
+    });
+}
+
+// Update tijden elke minuut
+updateTimeUntil();
+setInterval(updateTimeUntil, 60000);
 

@@ -1,79 +1,72 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="nl">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Super Radio - Your Premier Online Radio Station</title>
-    <meta name="description" content="Listen to the best music 24/7 with Super Radio. Live shows, great music, and amazing DJs.">
+    <title>Super Radio</title>
+    <meta name="description" content="Luister live naar Super Radio - De beste hits en non-stop muziek">
     <link rel="manifest" href="manifest.json">
-    <link rel="apple-touch-icon" href="https://placehold.co/192x192/ff1e8c/FFF?text=SR">
-    <meta name="theme-color" content="#ff1e8c">
-    <link rel="stylesheet" href="styles.css">
+    <link rel="icon" type="image/png" href="images/logo.png">
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <script>
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/sw.js')
-                    .then(registration => {
-                        console.log('ServiceWorker registration successful');
-                    })
-                    .catch(error => {
-                        console.error('ServiceWorker registration failed:', error);
-                    });
-            });
-        }
-    </script>
+    
+    <!-- Styles -->
+    <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <div class="scroll-progress" aria-hidden="true"></div>
-    <div class="app-container">
-        <nav class="main-nav">
-            <div class="nav-logo">
-                <img src="https://placehold.co/200x45/ff1e8c/FFF?text=Super+Radio" alt="Super Radio">
+    <!-- Scroll Progress -->
+    <div class="scroll-progress"></div>
+    
+    <div class="app-wrapper">
+        <!-- Header -->
+        <header class="main-header">
+            <div class="container">
+                <div class="logo">
+                    <img src="images/logo.png" alt="Super Radio">
+                </div>
+                <button class="listen-live-btn">
+                    <i class="fas fa-broadcast-tower"></i>
+                    <span>Listen Live</span>
+                </button>
             </div>
-            <button class="listen-live-btn">
-                <i class="fas fa-broadcast-tower"></i>
-                Listen Live
-            </button>
-        </nav>
+        </header>
 
+        <!-- Main Content -->
         <main>
+            <!-- Hero Section -->
             <section class="hero">
-                <div class="hero-background" style="background-image: url('https://placehold.co/1920x1080/333/FFF?text=Music')"></div>
-                <div class="hero-content">
-                    <div class="live-badge">
-                        <div class="pulse"></div>
-                        Live
-                    </div>
+                <div class="hero-bg"></div>
+                <div class="container">
                     <div class="current-track">
-                        <div class="track-artwork no-cover">
-                            <img src="" alt="Album Cover" id="current-track-image" style="display: none;">
-                            <div class="music-wave">
-                                <span></span>
-                                <span></span>
-                                <span></span>
-                                <span></span>
-                                <span></span>
+                        <div class="track-artwork">
+                            <div class="live-badge">
+                                <div class="pulse"></div>
+                                <span>Live</span>
+                            </div>
+                            <img src="" alt="Current Track" class="track-img">
+                            <div class="default-cover">
+                                <div class="music-wave">
+                                    <span></span><span></span><span></span>
+                                    <span></span><span></span>
+                                </div>
                             </div>
                         </div>
-                        <div class="track-details">
-                            <div class="now-playing-label">Now Playing</div>
+                        <div class="track-info">
                             <h1 class="track-title">Loading...</h1>
                             <p class="track-artist">Loading...</p>
-                            <div class="track-progress-container">
-                                <div class="track-progress">
-                                    <div class="track-progress-bar"></div>
+                            <div class="track-progress">
+                                <div class="progress-bar">
+                                    <div class="progress"></div>
                                 </div>
-                                <div class="track-time-info">
-                                    <div class="track-duration">
-                                        <i class="fas fa-music"></i>
-                                        <span class="duration">0:00</span>
-                                    </div>
-                                    <div class="time-remaining">
-                                        <i class="fas fa-hourglass-half"></i>
-                                        <span>0:00</span>
-                                    </div>
+                                <div class="time-info">
+                                    <span class="current-time">0:00</span>
+                                    <span class="duration">0:00</span>
                                 </div>
                             </div>
                         </div>
@@ -81,96 +74,89 @@
                 </div>
             </section>
 
-            <div class="recent-tracks">
+            <!-- Recent Tracks -->
+            <section class="recent-tracks">
                 <div class="container">
                     <div class="section-header">
-                        <h2>Recently Played</h2>
-                        <div class="tracks-controls">
-                            <button class="refresh-btn">
-                                <i class="fas fa-sync-alt"></i>
+                        <h2>Recente Nummers</h2>
+                        <div class="view-controls">
+                            <button class="view-btn" data-view="grid" title="Rasterweergave">
+                                <i class="fas fa-th-large"></i>
+                                <span class="keyboard-shortcut">G</span>
                             </button>
-                            <div class="track-view-toggle">
-                                <button class="view-btn active" data-view="grid">
-                                    <i class="fas fa-th"></i>
-                                </button>
-                                <button class="view-btn" data-view="list">
-                                    <i class="fas fa-list"></i>
-                                </button>
+                            <button class="view-btn" data-view="list" title="Lijstweergave">
+                                <i class="fas fa-list"></i>
+                                <span class="keyboard-shortcut">L</span>
+                            </button>
+                            <button class="refresh-btn" title="Vernieuwen">
+                                <i class="fas fa-sync-alt"></i>
+                                <span class="keyboard-shortcut">R</span>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="tracks-container">
+                        <div class="tracks-grid"></div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Schedule -->
+            <section class="schedule">
+                <div class="container">
+                    <div class="section-header">
+                        <h2>Radio Programma</h2>
+                    </div>
+                    <div class="schedule-container">
+                        <!-- Schedule content will be dynamically inserted here by JavaScript -->
+                    </div>
+                </div>
+            </section>
+
+            <!-- Music News -->
+            <section class="music-news">
+                <div class="container">
+                    <div class="section-header">
+                        <h2>Entertainment News</h2>
+                    </div>
+                    <div class="news-grid">
+                        <!-- News items will be added here -->
+                    </div>
+                </div>
+            </section>
+
+        </main>
+
+        <!-- Player Bar -->
+        <div class="player-bar">
+            <div class="container">
+                <div class="now-playing">
+                    <div class="track-artwork">
+                        <img src="" alt="Now Playing" class="track-img">
+                        <div class="default-cover">
+                            <div class="music-wave">
+                                <span></span><span></span><span></span>
+                                <span></span><span></span>
                             </div>
                         </div>
                     </div>
-                    <div class="tracks-grid tracks-container">
-                        <!-- Tracks will be populated here -->
-                    </div>
-                </div>
-            </div>
-
-            <!-- Upcoming Tracks Section -->
-            <div class="upcoming-tracks">
-                <div class="container">
-                    <!-- Content will be populated by JavaScript -->
-                </div>
-            </div>
-
-            <!-- Radio Schedule Section -->
-            <div class="radio-schedule">
-                <div class="container">
-                    <!-- Content will be populated by JavaScript -->
-                </div>
-            </div>
-
-            <div class="music-news">
-                <div class="container">
-                    <div class="section-header">
-                        <h2>Music News</h2>
-                    </div>
-                    <div class="news-grid">
-                        <!-- News items will be populated here -->
-                    </div>
-                </div>
-            </div>
-        </main>
-
-        <div class="player-bar">
-            <div class="player-content">
-                <div class="now-playing">
-                    <img src="https://placehold.co/400x400/333/FFF?text=Music" alt="Current track" class="current-track-img">
                     <div class="track-info">
                         <div class="track-title">Loading...</div>
-                        <div class="track-artist">Please wait...</div>
+                        <div class="track-artist">Loading...</div>
                     </div>
                 </div>
-                <div class="play-pause-wrapper">
+                <div class="player-controls">
                     <button class="play-pause-btn">
                         <i class="fas fa-play"></i>
+                        <span class="keyboard-shortcut">Space</span>
                     </button>
-                </div>
-                <div class="volume-control">
-                    <i class="fas fa-volume-up volume-icon"></i>
-                    <input type="range" class="volume-slider" min="0" max="100" value="80">
+                    <div class="volume-control">
+                        <i class="fas fa-volume-up"></i>
+                        <input type="range" class="volume-slider" min="0" max="100" value="80">
+                    </div>
                 </div>
             </div>
         </div>
     </div>
-
-    <template id="track-item-template">
-        <div class="track-item">
-            <div class="track-artwork no-cover">
-                <img src="" alt="Album Cover" style="display: none;">
-                <div class="music-wave">
-                    <span></span>
-                    <span></span>
-                    <span></span>
-                    <span></span>
-                    <span></span>
-                </div>
-            </div>
-            <div class="track-info">
-                <h3 class="track-title"></h3>
-                <p class="track-artist"></p>
-            </div>
-        </div>
-    </template>
 
     <script src="script.js"></script>
 </body>
