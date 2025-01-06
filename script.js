@@ -884,13 +884,36 @@ async function getCurrentShow() {
         const now = new Date();
         const day = now.toLocaleDateString('en-US', { weekday: 'short' }).toLowerCase();
         const hour = now.getHours();
+        const minutes = now.getMinutes();
+        const currentTimeInMinutes = hour * 60 + minutes;
 
         // Find current show
-        const currentShow = schedule.find(show => 
-            show.day === day && 
-            hour >= show.hour && 
-            hour < show.end_time
-        );
+        const currentShow = schedule.find(show => {
+            const showStartMinutes = show.hour * 60;
+            const showEndMinutes = show.end_time * 60;
+            
+            // Handle shows that span across midnight
+            if (show.hour > show.end_time) {
+                // Show runs past midnight
+                if (show.day === day) {
+                    // Current day's show that started before midnight
+                    return hour >= show.hour || hour < show.end_time;
+                } else {
+                    // Previous day's show running into current day
+                    const prevDay = new Date(now);
+                    prevDay.setDate(prevDay.getDate() - 1);
+                    const prevDayName = prevDay.toLocaleDateString('en-US', { weekday: 'short' }).toLowerCase();
+                    
+                    if (show.day === prevDayName && hour < show.end_time) {
+                        return true;
+                    }
+                }
+            } else {
+                // Normal show within same day
+                return show.day === day && hour >= show.hour && hour < show.end_time;
+            }
+            return false;
+        });
 
         return currentShow;
     } catch (error) {
@@ -908,37 +931,63 @@ async function getUpcomingShows() {
         const now = new Date();
         const currentHour = now.getHours();
         const currentMinutes = now.getMinutes();
+        const currentTimeInMinutes = currentHour * 60 + currentMinutes;
         const day = now.toLocaleDateString('en-US', { weekday: 'short' }).toLowerCase();
         
-        // Get shows for today
-        const todayShows = schedule.filter(show => show.day === day);
+        // Get shows for today and tomorrow
+        const tomorrow = new Date(now);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        const tomorrowDay = tomorrow.toLocaleDateString('en-US', { weekday: 'short' }).toLowerCase();
         
-        // Sort shows by time
-        todayShows.sort((a, b) => {
-            // Convert show times to minutes since midnight for easier comparison
+        const relevantShows = schedule.filter(show => 
+            show.day === day || show.day === tomorrowDay
+        );
+        
+        // Sort shows by time, handling midnight crossing
+        relevantShows.sort((a, b) => {
             const aTime = a.hour * 60;
             const bTime = b.hour * 60;
-            const currentTime = currentHour * 60 + currentMinutes;
             
-            // Adjust times for shows past midnight
-            const aAdjusted = aTime < currentTime ? aTime + 24 * 60 : aTime;
-            const bAdjusted = bTime < currentTime ? bTime + 24 * 60 : bTime;
+            // Convert to comparable times
+            let aAdjusted = aTime;
+            let bAdjusted = bTime;
+            
+            // If show starts today but we're past its start time, add 24 hours
+            if (a.day === day && aTime < currentTimeInMinutes) {
+                aAdjusted += 24 * 60;
+            }
+            if (b.day === day && bTime < currentTimeInMinutes) {
+                bAdjusted += 24 * 60;
+            }
+            
+            // If show is tomorrow, add 24 hours
+            if (a.day === tomorrowDay) {
+                aAdjusted += 24 * 60;
+            }
+            if (b.day === tomorrowDay) {
+                bAdjusted += 24 * 60;
+            }
             
             return aAdjusted - bAdjusted;
         });
         
-        // Get only upcoming shows
-        const upcomingShows = todayShows.filter(show => {
-            const showTime = show.hour * 60;
-            const currentTime = currentHour * 60 + currentMinutes;
+        // Filter to get only upcoming shows
+        const upcomingShows = relevantShows.filter(show => {
+            const showStartMinutes = show.hour * 60;
             
-            // Include shows that start in the future
-            // For shows after midnight, adjust the comparison
-            if (show.hour < 6) { // Early morning shows (00:00 - 05:59)
-                return (currentHour >= 22) || (currentHour < show.hour);
-            } else {
-                return showTime > currentTime;
+            if (show.day === day) {
+                // Today's shows
+                if (show.hour > show.end_time) {
+                    // Show crosses midnight
+                    return currentHour < show.hour;
+                } else {
+                    return showStartMinutes > currentTimeInMinutes;
+                }
+            } else if (show.day === tomorrowDay) {
+                // Tomorrow's shows
+                return true;
             }
+            return false;
         });
         
         // Return next 3 upcoming shows
