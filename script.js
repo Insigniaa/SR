@@ -3,6 +3,14 @@ const STATION_NAME = 'super-radio';
 const BASE_URL = 'https://api.laut.fm';
 const STREAM_URL = `https://stream.laut.fm/${STATION_NAME}`;
 
+// Spotify API Configuration
+const SPOTIFY_CLIENT_ID = 'fdeaefab6ddc48ed9f4a24f2e96b2ec7'; // Add your Spotify Client ID here
+const SPOTIFY_CLIENT_SECRET = 'ba498cbc6c64456998532179c18255dd'; // Add your Spotify Client Secret here
+const SPOTIFY_TOKEN_URL = 'https://accounts.spotify.com/api/token';
+const SPOTIFY_API_URL = 'https://api.spotify.com/v1';
+let spotifyAccessToken = null;
+let tokenExpirationTime = null;
+
 // Default Image Configuration
 const DEFAULT_COLORS = {
     primary: '6C63FF',    // Rich Purple
@@ -32,8 +40,6 @@ function generateDefaultImage(text, type = 'track') {
     return `https://placehold.co/400x400/${colors}?text=${formattedText}&font=montserrat`;
 }
 
-const LASTFM_API_KEY = '6356e58cb76c89948047da715c61c707';
-const LASTFM_BASE_URL = 'https://ws.audioscrobbler.com/2.0/';
 const newsContainer = document.querySelector('.news-grid');
 const scrollProgress = document.querySelector('.scroll-progress');
 
@@ -300,57 +306,6 @@ async function updateAllTracks() {
     }
 }
 
-async function getTrackImage(title, artist) {
-    if (!LASTFM_API_KEY) return null;
-    
-    // Clean up the title and artist strings
-    title = title.replace(/\+$/, '').trim();
-    artist = artist.replace(/^super(-|\s)?radio$/i, '').trim();
-    
-    // Handle special cases
-    if (!artist || !title || artist === 'Unknown Artist' || title === 'Unknown Track') {
-        return null;
-    }
-    
-    try {
-        // Try to get track info first
-        const response = await fetch(
-            `${LASTFM_BASE_URL}?method=track.getInfo&api_key=${LASTFM_API_KEY}&artist=${encodeURIComponent(artist)}&track=${encodeURIComponent(title)}&format=json`
-        );
-        
-        if (response.ok) {
-            const data = await response.json();
-            if (data.track?.album?.image) {
-                const largeImage = data.track.album.image.find(img => img.size === 'extralarge');
-                if (largeImage && largeImage['#text']) {
-                    return largeImage['#text'];
-                }
-            }
-        }
-        
-        // If no track image, try artist image
-        const artistResponse = await fetch(
-            `${LASTFM_BASE_URL}?method=artist.getInfo&api_key=${LASTFM_API_KEY}&artist=${encodeURIComponent(artist)}&format=json`
-        );
-        
-        if (artistResponse.ok) {
-            const artistData = await artistResponse.json();
-            if (artistData.artist?.image) {
-                const largeImage = artistData.artist.image.find(img => img.size === 'extralarge');
-                if (largeImage && largeImage['#text']) {
-                    return largeImage['#text'];
-                }
-            }
-        }
-        
-        // If no images found, return null to use default cover
-        return null;
-    } catch (error) {
-        console.error('Error fetching track image:', error);
-        return null;
-    }
-}
-
 function updateTrackArtwork(imageElement, imageUrl) {
     if (!imageElement) return;
 
@@ -360,19 +315,25 @@ function updateTrackArtwork(imageElement, imageUrl) {
     // Add loading state
     artworkContainer.classList.add('loading');
 
-    // Create music wave elements if they don't exist
-    if (!artworkContainer.querySelector('.music-wave')) {
+    // Get or create default cover
+    let defaultCover = artworkContainer.querySelector('.default-cover');
+    if (!defaultCover) {
+        defaultCover = document.createElement('div');
+        defaultCover.className = 'default-cover';
         const musicWave = document.createElement('div');
         musicWave.className = 'music-wave';
         for (let i = 0; i < 5; i++) {
             musicWave.appendChild(document.createElement('span'));
         }
-        artworkContainer.appendChild(musicWave);
+        defaultCover.appendChild(musicWave);
+        artworkContainer.appendChild(defaultCover);
     }
 
     // Function to show default animated cover
     const showDefaultCover = () => {
         imageElement.style.display = 'none';
+        imageElement.classList.remove('visible');
+        defaultCover.style.display = 'flex';
         artworkContainer.classList.add('no-cover');
         artworkContainer.classList.remove('loading');
     };
@@ -381,6 +342,8 @@ function updateTrackArtwork(imageElement, imageUrl) {
     const showActualCover = (url) => {
         imageElement.src = url;
         imageElement.style.display = 'block';
+        imageElement.classList.add('visible');
+        defaultCover.style.display = 'none';
         artworkContainer.classList.remove('no-cover', 'loading');
     };
 
@@ -453,46 +416,59 @@ function updateTrackProgress(track) {
 }
 
 async function updateCurrentTrack(track) {
-    // Update main track display
-    const mainTitle = document.querySelector('.hero .track-title');
-    const mainArtist = document.querySelector('.hero .track-artist');
-    const mainImage = document.querySelector('.hero .track-img');
-    const mainDefaultCover = document.querySelector('.hero .default-cover');
-    
-    if (mainTitle) mainTitle.textContent = track.title;
-    if (mainArtist) mainArtist.textContent = track.artist;
-    
-    // Update player bar
-    const playerTitle = document.querySelector('.player-bar .track-title');
-    const playerArtist = document.querySelector('.player-bar .track-artist');
-    const playerImage = document.querySelector('.player-bar .track-img');
-    const playerDefaultCover = document.querySelector('.player-bar .default-cover');
-    
-    if (playerTitle) playerTitle.textContent = track.title;
-    if (playerArtist) playerArtist.textContent = track.artist;
-    
-    // Update images if available
-    if (track.image) {
-        const updateImage = (img, defaultCover) => {
-            if (!img) return;
-            img.src = track.image;
-            img.onload = () => {
-                img.classList.add('visible');
-                if (defaultCover) defaultCover.style.display = 'none';
-            };
+    try {
+        // Update main track display
+        const mainTitle = document.querySelector('.hero .track-title');
+        const mainArtist = document.querySelector('.hero .track-artist');
+        const mainImage = document.querySelector('.hero .track-img');
+        
+        // Update player bar
+        const playerTitle = document.querySelector('.player-bar .track-title');
+        const playerArtist = document.querySelector('.player-bar .track-artist');
+        const playerImage = document.querySelector('.player-bar .track-img');
+        
+        // Set titles and artists
+        const title = track.title || 'Unknown Track';
+        const artist = track.artist?.name || track.artist || 'Unknown Artist';
+        
+        if (mainTitle) mainTitle.textContent = title;
+        if (mainArtist) mainArtist.textContent = artist;
+        if (playerTitle) playerTitle.textContent = title;
+        if (playerArtist) playerArtist.textContent = artist;
+
+        // Try to get Spotify image
+        let imageUrl = null;
+        if (title !== 'Unknown Track' && artist !== 'Unknown Artist') {
+            imageUrl = await getTrackImage(title, artist);
+        }
+        
+        // Fallback to provided image or default
+        imageUrl = imageUrl || track.cover || track.artist?.image || track.artist?.thumb || DEFAULT_TRACK_IMAGE;
+
+        // Update images
+        if (mainImage) updateTrackArtwork(mainImage, imageUrl);
+        if (playerImage) updateTrackArtwork(playerImage, imageUrl);
+        
+        // Update progress bar with track timing information
+        if (track.started_at && track.ends_at) {
+            updateTrackProgress(track);
+        }
+        
+        // Update document title
+        document.title = `${title} - ${artist} | Super Radio`;
+
+    } catch (error) {
+        console.error('Error updating current track:', error);
+        // Use fallback display in case of error
+        const fallbackTrack = {
+            title: track.title || 'Live Stream',
+            artist: track.artist?.name || 'Super Radio',
+            image: DEFAULT_TRACK_IMAGE
         };
         
-        updateImage(mainImage, mainDefaultCover);
-        updateImage(playerImage, playerDefaultCover);
+        // Recursively call with fallback but without Spotify integration
+        updateCurrentTrack(fallbackTrack);
     }
-    
-    // Update progress bar with track timing information
-    if (track.started_at && track.ends_at) {
-        updateTrackProgress(track);
-    }
-    
-    // Update document title
-    document.title = `${track.title} - ${track.artist} | Super Radio`;
 }
 
 function getRelativeTimeString(date) {
@@ -520,55 +496,87 @@ async function displayRecentTracks(tracks) {
     const container = document.querySelector('.tracks-grid');
     if (!container) return;
     
-    container.innerHTML = '';
+    // Fade out current tracks
+    container.style.opacity = '0';
     
-    // Limit to 8 tracks
-    const recentTracks = tracks.slice(0, 8);
-    
-    recentTracks.forEach(track => {
-        const trackElement = document.createElement('div');
-        trackElement.className = 'track-item';
+    try {
+        // Limit to 8 tracks
+        const recentTracks = tracks.slice(0, 8);
         
-        const artwork = document.createElement('div');
-        artwork.className = 'track-artwork';
+        // Create track elements with loading state
+        const trackElements = await Promise.all(recentTracks.map(async track => {
+            const trackElement = document.createElement('div');
+            trackElement.className = 'track-item';
+            
+            const artwork = document.createElement('div');
+            artwork.className = 'track-artwork';
+            
+            const img = document.createElement('img');
+            img.className = 'track-img';
+            img.alt = `${track.title} by ${track.artist}`;
+            
+            const defaultCover = document.createElement('div');
+            defaultCover.className = 'default-cover';
+            defaultCover.innerHTML = `
+                <div class="music-wave">
+                    <span></span><span></span><span></span>
+                    <span></span><span></span>
+                </div>
+            `;
+            
+            artwork.appendChild(img);
+            artwork.appendChild(defaultCover);
+            
+            const info = document.createElement('div');
+            info.className = 'track-info';
+            info.innerHTML = `
+                <div class="track-title">${track.title}</div>
+                <div class="track-artist">${track.artist}</div>
+                <div class="track-time">${formatTimestamp(track.startedAt)}</div>
+            `;
+            
+            trackElement.appendChild(artwork);
+            trackElement.appendChild(info);
+            
+            // Try to get Spotify image
+            try {
+                const spotifyImage = await getTrackImage(track.title, track.artist);
+                if (spotifyImage) {
+                    img.src = spotifyImage;
+                    img.onload = () => {
+                        img.classList.add('visible');
+                        defaultCover.style.display = 'none';
+                    };
+                } else {
+                    // Fallback to provided image or default
+                    const fallbackImage = track.cover || track.artist?.image || track.artist?.thumb || DEFAULT_TRACK_IMAGE;
+                    updateTrackArtwork(img, fallbackImage);
+                }
+            } catch (error) {
+                console.warn('Error getting Spotify image:', error);
+                // Use fallback image
+                const fallbackImage = track.cover || track.artist?.image || track.artist?.thumb || DEFAULT_TRACK_IMAGE;
+                updateTrackArtwork(img, fallbackImage);
+            }
+            
+            return trackElement;
+        }));
         
-        const img = document.createElement('img');
-        img.className = 'track-img';
-        img.alt = `${track.title} by ${track.artist}`;
+        // Clear and update container
+        container.innerHTML = '';
+        trackElements.forEach(element => container.appendChild(element));
         
-        const defaultCover = document.createElement('div');
-        defaultCover.className = 'default-cover';
-        defaultCover.innerHTML = `
-            <div class="music-wave">
-                <span></span><span></span><span></span>
-                <span></span><span></span>
-            </div>
-        `;
+        // Fade in new tracks
+        setTimeout(() => {
+            container.style.opacity = '1';
+        }, 300);
         
-        artwork.appendChild(img);
-        artwork.appendChild(defaultCover);
-        
-        const info = document.createElement('div');
-        info.className = 'track-info';
-        info.innerHTML = `
-            <div class="track-title">${track.title}</div>
-            <div class="track-artist">${track.artist}</div>
-            <div class="track-time">${formatTimestamp(track.startedAt)}</div>
-        `;
-        
-        trackElement.appendChild(artwork);
-        trackElement.appendChild(info);
-        container.appendChild(trackElement);
-        
-        // Load track image
-        if (track.image) {
-            img.src = track.image;
-            img.onload = () => {
-                img.classList.add('visible');
-                defaultCover.style.display = 'none';
-            };
-        }
-    });
+    } catch (error) {
+        console.error('Error displaying recent tracks:', error);
+        // Show error state or fallback
+        container.innerHTML = '<div class="error-message">Could not load recent tracks</div>';
+        container.style.opacity = '1';
+    }
 }
 
 async function handleRefresh() {
@@ -768,7 +776,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 });
 
-function displayUpcomingTracks(upcomingArtists) {
+async function displayUpcomingTracks(upcomingArtists) {
     if (!upcomingContainer) return;
     
     console.log('Upcoming artists data:', upcomingArtists);
@@ -777,53 +785,92 @@ function displayUpcomingTracks(upcomingArtists) {
     upcomingContainer.style.opacity = '0';
     
     // Wait for fade out
-    setTimeout(() => {
-        // Clear container
-        upcomingContainer.innerHTML = '';
-        
-        // Create header
-        const header = document.createElement('div');
-        header.className = 'section-header';
-        header.innerHTML = '<h2>Coming Up Next</h2>';
-        upcomingContainer.appendChild(header);
-        
-        // Create tracks container
-        const tracksContainer = document.createElement('div');
-        tracksContainer.className = 'upcoming-tracks-container';
-        
-        if (Array.isArray(upcomingArtists) && upcomingArtists.length > 0) {
-            upcomingArtists.forEach(async (item, index) => {
-                if (!item.artist || !item.artist.name) return;
-                
-                const artistName = item.artist.name;
-                // Skip if it's the station name
-                if (artistName.toLowerCase().includes('super-radio')) return;
-                
-                const trackElement = document.createElement('div');
-                trackElement.className = 'upcoming-track-item';
-                
-                // Try to get artist image from Last.fm
-                let artistImage = null;
-                try {
-                    const response = await fetch(
-                        `${LASTFM_BASE_URL}?method=artist.getInfo&api_key=${LASTFM_API_KEY}&artist=${encodeURIComponent(artistName)}&format=json`
-                    );
-                    if (response.ok) {
-                        const data = await response.json();
-                        if (data.artist && data.artist.image) {
-                            const largeImage = data.artist.image.find(img => img.size === 'large');
-                            if (largeImage && largeImage['#text']) {
-                                artistImage = largeImage['#text'];
+    setTimeout(async () => {
+        try {
+            // Clear container
+            upcomingContainer.innerHTML = '';
+            
+            // Create header
+            const header = document.createElement('div');
+            header.className = 'section-header';
+            header.innerHTML = '<h2>Coming Up Next</h2>';
+            upcomingContainer.appendChild(header);
+            
+            // Create tracks container
+            const tracksContainer = document.createElement('div');
+            tracksContainer.className = 'upcoming-tracks-container';
+            
+            if (Array.isArray(upcomingArtists) && upcomingArtists.length > 0) {
+                // Process artists in parallel
+                const artistElements = await Promise.all(upcomingArtists.map(async (item, index) => {
+                    if (!item.artist || !item.artist.name) return null;
+                    
+                    const artistName = item.artist.name;
+                    // Skip if it's the station name
+                    if (artistName.toLowerCase().includes('super-radio')) return null;
+                    
+                    const trackElement = document.createElement('div');
+                    trackElement.className = 'upcoming-track-item';
+                    
+                    // Try to get artist image from Spotify
+                    let artistImage = null;
+                    try {
+                        const token = await getSpotifyAccessToken();
+                        if (token) {
+                            const response = await fetch(
+                                `${SPOTIFY_API_URL}/search?q=${encodeURIComponent(artistName)}&type=artist&limit=1`,
+                                {
+                                    headers: {
+                                        'Authorization': `Bearer ${token}`
+                                    }
+                                }
+                            );
+                            
+                            if (response.ok) {
+                                const data = await response.json();
+                                if (data.artists?.items?.[0]?.images?.[0]?.url) {
+                                    artistImage = data.artists.items[0].images[0].url;
+                                }
                             }
                         }
+                    } catch (error) {
+                        console.warn('Failed to fetch artist image from Spotify:', error);
                     }
-                } catch (error) {
-                    console.warn('Failed to fetch artist image:', error);
-                }
+                    
+                    // Fallback to provided image or default
+                    artistImage = artistImage || item.artist.image || item.artist.thumb || DEFAULT_TRACK_IMAGE;
+                    
+                    trackElement.innerHTML = `
+                        <div class="track-artwork">
+                            <img src="${artistImage}" alt="${artistName}" onerror="this.style.display='none';this.parentElement.classList.add('no-cover')">
+                            <div class="music-wave">
+                                <span></span>
+                                <span></span>
+                                <span></span>
+                                <span></span>
+                                <span></span>
+                            </div>
+                        </div>
+                        <div class="track-item-info">
+                            <div class="track-item-artist">${artistName}</div>
+                            <div class="track-item-time">Coming up ${index === 0 ? 'next' : `#${index + 1}`}</div>
+                        </div>
+                    `;
+                    
+                    return trackElement;
+                }));
                 
-                trackElement.innerHTML = `
+                // Add valid elements to container
+                artistElements
+                    .filter(element => element !== null)
+                    .forEach(element => tracksContainer.appendChild(element));
+                
+            } else {
+                // Show message when no upcoming tracks
+                const noTracksElement = document.createElement('div');
+                noTracksElement.className = 'no-upcoming-tracks';
+                noTracksElement.innerHTML = `
                     <div class="track-artwork no-cover">
-                        <img src="" alt="${artistName}" style="display: none;">
                         <div class="music-wave">
                             <span></span>
                             <span></span>
@@ -832,40 +879,22 @@ function displayUpcomingTracks(upcomingArtists) {
                             <span></span>
                         </div>
                     </div>
-                    <div class="track-item-info">
-                        <div class="track-item-artist">${artistName}</div>
-                        <div class="track-item-time">Coming up ${index === 0 ? 'next' : `#${index + 1}`}</div>
-                    </div>
+                    <p>No upcoming tracks information available</p>
                 `;
-                
-                tracksContainer.appendChild(trackElement);
-                
-                // Update artwork after element is added to DOM
-                const imgElement = trackElement.querySelector('.track-artwork img');
-                if (imgElement) {
-                    updateTrackArtwork(imgElement, artistImage);
-                }
-            });
-        } else {
-            // Show message when no upcoming tracks
-            const noTracksElement = document.createElement('div');
-            noTracksElement.className = 'no-upcoming-tracks';
-            noTracksElement.innerHTML = `
-                <div class="track-artwork no-cover">
-                    <div class="music-wave">
-                        <span></span>
-                        <span></span>
-                        <span></span>
-                        <span></span>
-                        <span></span>
-                    </div>
+                tracksContainer.appendChild(noTracksElement);
+            }
+            
+            upcomingContainer.appendChild(tracksContainer);
+            
+        } catch (error) {
+            console.error('Error displaying upcoming tracks:', error);
+            upcomingContainer.innerHTML = `
+                <div class="section-header">
+                    <h2>Coming Up Next</h2>
                 </div>
-                <p>No upcoming tracks information available</p>
+                <div class="error-message">Could not load upcoming tracks</div>
             `;
-            tracksContainer.appendChild(noTracksElement);
         }
-        
-        upcomingContainer.appendChild(tracksContainer);
         
         // Fade back in
         setTimeout(() => {
@@ -1421,4 +1450,96 @@ function updateTimeUntil() {
 // Update tijden elke minuut
 updateTimeUntil();
 setInterval(updateTimeUntil, 60000);
+
+// Spotify Authentication and Track Functions
+async function getSpotifyAccessToken() {
+    if (spotifyAccessToken && tokenExpirationTime && Date.now() < tokenExpirationTime) {
+        return spotifyAccessToken;
+    }
+
+    try {
+        const response = await fetch(SPOTIFY_TOKEN_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'Authorization': 'Basic ' + btoa(SPOTIFY_CLIENT_ID + ':' + SPOTIFY_CLIENT_SECRET)
+            },
+            body: 'grant_type=client_credentials'
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to get Spotify access token');
+        }
+
+        const data = await response.json();
+        spotifyAccessToken = data.access_token;
+        tokenExpirationTime = Date.now() + (data.expires_in * 1000);
+        return spotifyAccessToken;
+    } catch (error) {
+        console.error('Error getting Spotify access token:', error);
+        return null;
+    }
+}
+
+async function getTrackImage(title, artist) {
+    if (!title || !artist || artist === 'Unknown Artist' || title === 'Unknown Track') {
+        return null;
+    }
+
+    try {
+        const token = await getSpotifyAccessToken();
+        if (!token) return null;
+
+        // Clean up the title and artist strings
+        title = title.replace(/\+$/, '').trim();
+        artist = artist.replace(/^super(-|\s)?radio$/i, '').trim();
+
+        // Search for the track on Spotify
+        const searchResponse = await fetch(
+            `${SPOTIFY_API_URL}/search?q=${encodeURIComponent(title + ' ' + artist)}&type=track&limit=1`,
+            {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            }
+        );
+
+        if (!searchResponse.ok) {
+            throw new Error('Failed to search Spotify');
+        }
+
+        const searchData = await searchResponse.json();
+        const track = searchData.tracks?.items?.[0];
+
+        if (track?.album?.images?.[0]?.url) {
+            return track.album.images[0].url;
+        }
+
+        // If no track found, try searching for the artist
+        const artistSearchResponse = await fetch(
+            `${SPOTIFY_API_URL}/search?q=${encodeURIComponent(artist)}&type=artist&limit=1`,
+            {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            }
+        );
+
+        if (!artistSearchResponse.ok) {
+            throw new Error('Failed to search Spotify for artist');
+        }
+
+        const artistData = await artistSearchResponse.json();
+        const artistImages = artistData.artists?.items?.[0]?.images;
+
+        if (artistImages?.[0]?.url) {
+            return artistImages[0].url;
+        }
+
+        return null;
+    } catch (error) {
+        console.error('Error fetching track image from Spotify:', error);
+        return null;
+    }
+}
 
