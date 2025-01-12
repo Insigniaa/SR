@@ -1194,7 +1194,7 @@ async function getListenerCount() {
         const date = now.getDate();
         
         // Base engagement (max 50 listeners)
-        let baseEngagement = 15; // Lower base count from 5 to 3
+        let baseEngagement = 3; // Lower base count from 5 to 3
         
         // Detailed time-based patterns (reduced numbers)
         const timePatterns = {
