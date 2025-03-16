@@ -3,15 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Super Radio</title>
-    <meta name="description" content="Luister live naar Super Radio - De beste hits en non-stop muziek">
+    <title>Super Radio | Live Radio & Hits</title>
+    <meta name="description" content="Luister live naar Super Radio - De ultieme hitradio met non-stop muziek en entertainment">
     <link rel="manifest" href="manifest.json">
     <link rel="icon" type="image/png" href="images/logo.png">
     
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
     
     <!-- Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -20,8 +20,9 @@
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <!-- Scroll Progress -->
-    <div class="scroll-progress"></div>
+    <div class="animated-background">
+        <canvas id="bg-canvas"></canvas>
+    </div>
     
     <div class="app-wrapper">
         <!-- Header -->
@@ -29,10 +30,18 @@
             <div class="container">
                 <div class="logo">
                     <img src="images/logo.png" alt="Super Radio">
+                    <div class="station-frequency">104.8 FM</div>
                 </div>
+                <nav class="main-nav">
+                    <ul>
+                        <li><a href="#" class="active">Home</a></li>
+                        <li><a href="#news">Nieuws</a></li>
+                        <li><a href="#schedule">Programma's</a></li>
+                    </ul>
+                </nav>
                 <button class="listen-live-btn">
                     <i class="fas fa-broadcast-tower"></i>
-                    <span>Listen Live</span>
+                    <span>LUISTER LIVE</span>
                 </button>
             </div>
         </header>
@@ -42,12 +51,16 @@
             <!-- Hero Section -->
             <section class="hero">
                 <div class="hero-bg"></div>
+                <div class="sound-waves">
+                    <span></span><span></span><span></span><span></span><span></span>
+                    <span></span><span></span><span></span><span></span><span></span>
+                </div>
                 <div class="container">
                     <div class="current-track">
                         <div class="track-artwork">
                             <div class="live-badge">
                                 <div class="pulse"></div>
-                                <span>Live</span>
+                                <span>LIVE</span>
                             </div>
                             <img src="" alt="Current Track" class="track-img">
                             <div class="default-cover">
@@ -56,8 +69,40 @@
                                     <span></span><span></span>
                                 </div>
                             </div>
+                            <div class="audio-visualizer">
+                                <span class="bar"></span>
+                                <span class="bar"></span>
+                                <span class="bar"></span>
+                                <span class="bar"></span>
+                                <span class="bar"></span>
+                                <span class="bar"></span>
+                                <span class="bar"></span>
+                                <span class="bar"></span>
+                                <span class="bar"></span>
+                                <span class="bar"></span>
+                                <span class="bar"></span>
+                                <span class="bar"></span>
+                                <span class="bar"></span>
+                                <span class="bar"></span>
+                                <span class="bar"></span>
+                                <span class="bar"></span>
+                                <span class="bar"></span>
+                                <span class="bar"></span>
+                                <span class="bar"></span>
+                                <span class="bar"></span>
+                                <span class="bar"></span>
+                                <span class="bar"></span>
+                                <span class="bar"></span>
+                                <span class="bar"></span>
+                                <span class="bar"></span>
+                                <span class="bar"></span>
+                                <span class="bar"></span>
+                                <span class="bar"></span>
+                            </div>
+                            <div class="glow-ring"></div>
                         </div>
                         <div class="track-info">
+                            <div class="now-playing-label">NU OP SUPER RADIO</div>
                             <h1 class="track-title">Loading...</h1>
                             <p class="track-artist">Loading...</p>
                             <div class="track-progress">
@@ -69,42 +114,60 @@
                                     <span class="duration">0:00</span>
                                 </div>
                             </div>
+                            <div class="track-actions">
+                                <button class="action-btn share-btn" title="Delen">
+                                    <i class="fas fa-share-alt"></i>
+                                </button>
+                                <button class="action-btn info-btn" title="Info">
+                                    <i class="fas fa-info-circle"></i>
+                                </button>
+                            </div>
                         </div>
                     </div>
+                </div>
+                <div class="hero-decorations">
+                    <div class="music-note note-1"><i class="fas fa-music"></i></div>
+                    <div class="music-note note-2"><i class="fas fa-music"></i></div>
+                    <div class="music-note note-3"><i class="fas fa-music"></i></div>
                 </div>
             </section>
 
             <!-- Recent Tracks -->
-            <section class="recent-tracks">
+            <section class="recent-tracks section">
                 <div class="container">
                     <div class="section-header">
                         <h2>Recente Nummers</h2>
                         <div class="view-controls">
-                            <button class="view-btn" data-view="grid" title="Rasterweergave">
+                            <button class="view-btn" data-view="grid" title="Grid View">
                                 <i class="fas fa-th-large"></i>
                                 <span class="keyboard-shortcut">G</span>
                             </button>
-                            <button class="view-btn" data-view="list" title="Lijstweergave">
+                            <button class="view-btn" data-view="list" title="List View">
                                 <i class="fas fa-list"></i>
                                 <span class="keyboard-shortcut">L</span>
                             </button>
-                            <button class="refresh-btn" title="Vernieuwen">
+                            <button class="refresh-btn" title="Refresh">
                                 <i class="fas fa-sync-alt"></i>
                                 <span class="keyboard-shortcut">R</span>
                             </button>
                         </div>
                     </div>
-                    <div class="tracks-container">
-                        <div class="tracks-grid"></div>
-                    </div>
+                    <div class="tracks-grid"></div>
                 </div>
             </section>
 
             <!-- Schedule -->
-            <section class="schedule">
+            <section id="schedule" class="schedule">
                 <div class="container">
                     <div class="section-header">
                         <h2>Radio Programma</h2>
+                        <div class="day-selector">
+                            <button class="day-btn active">Vandaag</button>
+                            <button class="day-btn">Morgen</button>
+                            <button class="day-btn">Woensdag</button>
+                            <button class="day-btn">Donderdag</button>
+                            <button class="day-btn">Vrijdag</button>
+                        </div>
                     </div>
                     <div class="schedule-container">
                         <!-- Schedule content will be dynamically inserted here by JavaScript -->
@@ -113,7 +176,7 @@
             </section>
 
             <!-- Music News -->
-            <section class="music-news">
+            <section id="news" class="music-news">
                 <div class="container">
                     <div class="section-header">
                         <h2>Entertainment News</h2>
@@ -144,20 +207,77 @@
                         <div class="track-artist">Loading...</div>
                     </div>
                 </div>
+                
                 <div class="player-controls">
                     <button class="play-pause-btn">
                         <i class="fas fa-play"></i>
                         <span class="keyboard-shortcut">Space</span>
                     </button>
                     <div class="volume-control">
-                        <i class="fas fa-volume-up"></i>
+                        <i class="fas fa-volume-up volume-icon"></i>
                         <input type="range" class="volume-slider" min="0" max="100" value="80">
                     </div>
                 </div>
             </div>
         </div>
+
+        <!-- Mobile Menu -->
+        <div class="mobile-menu">
+            <button class="mobile-menu-toggle">
+                <i class="fas fa-bars"></i>
+            </button>
+            <div class="mobile-menu-content">
+                <nav>
+                    <ul>
+                        <li><a href="#" class="active">Home</a></li>
+                        <li><a href="#news">Nieuws</a></li>
+                        <li><a href="#schedule">Programma's</a></li>
+                    </ul>
+                </nav>
+            </div>
+        </div>
     </div>
 
     <script src="script.js"></script>
+    <script>
+        // Smooth Scrolling voor navigatie
+        document.addEventListener('DOMContentLoaded', function() {
+            // Selecteer alle navigatielinks die beginnen met # maar niet enkel # zijn
+            const navLinks = document.querySelectorAll('a[href^="#"]:not([href="#"])');
+            
+            navLinks.forEach(link => {
+                link.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    
+                    // Get het doel van de link
+                    const targetId = this.getAttribute('href');
+                    const targetElement = document.querySelector(targetId);
+                    
+                    if (targetElement) {
+                        // Markeer de juiste link als actief
+                        document.querySelectorAll('.main-nav a, .mobile-menu-content a').forEach(navLink => {
+                            navLink.classList.remove('active');
+                        });
+                        document.querySelectorAll(`a[href="${targetId}"]`).forEach(navLink => {
+                            navLink.classList.add('active');
+                        });
+                        
+                        // Sluit mobiel menu als het open is
+                        const mobileMenuContent = document.querySelector('.mobile-menu-content');
+                        if (mobileMenuContent && mobileMenuContent.classList.contains('open')) {
+                            mobileMenuContent.classList.remove('open');
+                        }
+                        
+                        // Scroll naar het doel met een vloeiende animatie
+                        window.scrollTo({
+                            top: targetElement.offsetTop - 80, // Marge voor de header
+                            behavior: 'smooth'
+                        });
+                    }
+                });
+            });
+        });
+    </script>
 </body>
 </html>
+
