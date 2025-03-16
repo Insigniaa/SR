@@ -54,10 +54,20 @@ const refreshBtn = document.querySelector('.refresh-btn');
 const listenLiveBtn = document.querySelector('.listen-live-btn');
 const upcomingContainer = document.querySelector('.upcoming-tracks .container');
 const scheduleContainer = document.querySelector('.schedule .container');
+const bgCanvas = document.getElementById('bg-canvas');
 
 // Audio Player
 const audioPlayer = new Audio(STREAM_URL);
 let isPlaying = false;
+let currentTrackData = null;
+let recentTracks = [];
+let isTransitioning = false;
+let transitionTimeout = null;
+
+// Animation variables
+let particlesArray = [];
+let animationId = null;
+let ctx;
 
 // Event Listeners
 document.addEventListener('DOMContentLoaded', () => {
@@ -65,6 +75,8 @@ document.addEventListener('DOMContentLoaded', () => {
     initializePlayer();
     updateAllTracks();
     updateMusicNews();
+    initializeAnimatedBackground();
+    initializeViewControls();
     
     // Start periodic updates
     setInterval(updateAllTracks, 120000); // Update every 2 minutes
@@ -77,12 +89,16 @@ document.addEventListener('DOMContentLoaded', () => {
     if (correspondingButton) {
         correspondingButton.click();
     }
+    
+    // Add refresh button event listener
+    if (refreshBtn) {
+        refreshBtn.addEventListener('click', handleRefresh);
+    }
 });
 
 playPauseBtn.addEventListener('click', togglePlayPause);
 listenLiveBtn.addEventListener('click', togglePlayPause);
 volumeSlider.addEventListener('input', updateVolume);
-refreshBtn.addEventListener('click', handleRefresh);
 
 // Add scroll progress indicator
 window.addEventListener('scroll', () => {
@@ -144,6 +160,9 @@ function initializePlayer() {
     volumeSlider.value = savedVolume;
     audioPlayer.volume = savedVolume / 100;
     updatePlayPauseButton();
+    
+    // Add event listener for audio transitions
+    audioPlayer.addEventListener('play', handleAudioTransition);
 }
 
 function togglePlayPause() {
@@ -417,6 +436,9 @@ function updateTrackProgress(track) {
 
 async function updateCurrentTrack(track) {
     try {
+        // Store current track
+        currentTrackData = track;
+        
         // Update main track display
         const mainTitle = document.querySelector('.hero .track-title');
         const mainArtist = document.querySelector('.hero .track-artist');
@@ -501,7 +523,7 @@ async function displayRecentTracks(tracks) {
     
     try {
         // Limit to 8 tracks
-        const recentTracks = tracks.slice(0, 8);
+        const recentTracks = tracks.slice(0, 10);
         
         // Create track elements with loading state
         const trackElements = await Promise.all(recentTracks.map(async track => {
@@ -581,9 +603,19 @@ async function displayRecentTracks(tracks) {
 
 async function handleRefresh() {
     const btn = document.querySelector('.refresh-btn');
-    btn.classList.add('rotating');
-    await updateAllTracks();
-    setTimeout(() => btn.classList.remove('rotating'), 1000);
+    
+    if (btn) {
+        // Add rotating animation
+        btn.classList.add('rotating');
+        
+        // Update tracks
+        await updateAllTracks();
+        
+        // Remove animation after 1 second
+        setTimeout(() => {
+            btn.classList.remove('rotating');
+        }, 1000);
+    }
 }
 
 // Error Handling
@@ -1541,5 +1573,657 @@ async function getTrackImage(title, artist) {
         console.error('Error fetching track image from Spotify:', error);
         return null;
     }
+}
+
+// Mobile Menu Toggle
+const mobileMenuToggle = document.querySelector('.mobile-menu-toggle');
+const mobileMenu = document.querySelector('.mobile-menu');
+
+if (mobileMenuToggle && mobileMenu) {
+    mobileMenuToggle.addEventListener('click', () => {
+        mobileMenu.classList.toggle('active');
+    });
+
+    // Close menu when clicking outside
+    document.addEventListener('click', (e) => {
+        if (!mobileMenu.contains(e.target) && e.target !== mobileMenuToggle) {
+            mobileMenu.classList.remove('active');
+        }
+    });
+}
+
+// Day Selector
+const dayButtons = document.querySelectorAll('.day-btn');
+if (dayButtons.length) {
+    dayButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+            // Remove active class from all buttons
+            dayButtons.forEach(b => b.classList.remove('active'));
+            // Add active class to clicked button
+            btn.classList.add('active');
+            
+            // Here you would load schedule data for the selected day
+            // For demonstration purposes, we'll just show a console log
+            console.log(`Selected day: ${btn.textContent}`);
+        });
+    });
+}
+
+// Share Button
+const shareBtn = document.querySelector('.share-btn');
+if (shareBtn) {
+    shareBtn.addEventListener('click', () => {
+        // Get current track info
+        const trackTitle = document.querySelector('.track-title').textContent;
+        const trackArtist = document.querySelector('.track-artist').textContent;
+        
+        // Create share text
+        const shareText = `Ik luister nu naar ${trackTitle} van ${trackArtist} op Super Radio!`;
+        
+        // Check if Web Share API is available
+        if (navigator.share) {
+            navigator.share({
+                title: 'Super Radio',
+                text: shareText,
+                url: window.location.href
+            })
+            .then(() => showNotification('Gedeeld!'))
+            .catch(err => console.error('Delen mislukt:', err));
+        } else {
+            // Fallback - copy to clipboard
+            navigator.clipboard.writeText(shareText)
+                .then(() => showNotification('Link gekopieerd naar klembord!'))
+                .catch(err => console.error('Kopiëren mislukt:', err));
+        }
+    });
+}
+
+// Info Button
+const infoBtn = document.querySelector('.info-btn');
+if (infoBtn) {
+    infoBtn.addEventListener('click', () => {
+        // Here you would show track details, lyrics, etc.
+        showNotification('Trackinformatie komt binnenkort!');
+    });
+}
+
+// Simple notification system
+function showNotification(message) {
+    // Check if notification container exists, create if not
+    let notificationContainer = document.querySelector('.notification-container');
+    if (!notificationContainer) {
+        notificationContainer = document.createElement('div');
+        notificationContainer.className = 'notification-container';
+        document.body.appendChild(notificationContainer);
+        
+        // Add CSS for notifications
+        const style = document.createElement('style');
+        style.textContent = `
+            .notification-container {
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                z-index: 9999;
+            }
+            
+            .notification {
+                background: rgba(24, 24, 24, 0.9);
+                color: white;
+                padding: 12px 20px;
+                margin-bottom: 10px;
+                border-radius: 8px;
+                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+                transform: translateX(100%);
+                animation: slideIn 0.3s forwards, fadeOut 0.5s 2.5s forwards;
+                backdrop-filter: blur(5px);
+                border-left: 3px solid var(--primary);
+                font-weight: 500;
+            }
+            
+            @keyframes slideIn {
+                to { transform: translateX(0); }
+            }
+            
+            @keyframes fadeOut {
+                to { opacity: 0; transform: translateX(100%); }
+            }
+        `;
+        document.head.appendChild(style);
+    }
+    
+    // Create and add notification
+    const notification = document.createElement('div');
+    notification.className = 'notification';
+    notification.textContent = message;
+    notificationContainer.appendChild(notification);
+    
+    // Remove notification after animation
+    setTimeout(() => {
+        notification.remove();
+    }, 3000);
+}
+
+// Enhanced visual effects
+document.addEventListener('DOMContentLoaded', () => {
+    // Enhanced audio visualizer effect
+    const trackArtwork = document.querySelector('.hero .track-artwork');
+    const audioVisualizer = document.querySelector('.audio-visualizer');
+    const glowRing = document.querySelector('.glow-ring');
+    
+    if (trackArtwork) {
+        // Make bars visible but at a low opacity by default
+        if (audioVisualizer) {
+            audioVisualizer.style.opacity = '0.3';
+            
+            // Animate the bars dynamically
+            const bars = audioVisualizer.querySelectorAll('.bar');
+            bars.forEach((bar, index) => {
+                // Random initial height between 20% and 60%
+                bar.style.height = Math.floor(20 + Math.random() * 40) + '%';
+            });
+        }
+        
+        // Add 3D rotation effect on mouse move
+        trackArtwork.addEventListener('mousemove', (e) => {
+            const rect = trackArtwork.getBoundingClientRect();
+            const x = e.clientX - rect.left; // x position within the element
+            const y = e.clientY - rect.top;  // y position within the element
+            
+            // Calculate rotation based on mouse position
+            const centerX = rect.width / 2;
+            const centerY = rect.height / 2;
+            const rotateY = (x - centerX) / 15; // Adjust divisor for rotation intensity
+            const rotateX = (centerY - y) / 15;
+            
+            // Apply the transform
+            trackArtwork.style.transform = `perspective(1000px) rotateY(${rotateY}deg) rotateX(${rotateX}deg) scale(1.05)`;
+            
+            // Make visualizer more visible on hover
+            if (audioVisualizer) {
+                audioVisualizer.style.opacity = '1';
+            }
+            
+            // Show glow ring
+            if (glowRing) {
+                glowRing.style.opacity = '1';
+            }
+            
+            // Make the bars react to mouse position
+            if (audioVisualizer) {
+                const bars = audioVisualizer.querySelectorAll('.bar');
+                const angle = Math.atan2(y - centerY, x - centerX);
+                const distance = Math.sqrt(Math.pow(x - centerX, 2) + Math.pow(y - centerY, 2));
+                const normalizedDistance = Math.min(1, distance / (rect.width / 2));
+                
+                bars.forEach((bar, index) => {
+                    const barAngle = (index / bars.length) * Math.PI * 2;
+                    const angleDiff = Math.abs(angle - barAngle) % (Math.PI * 2);
+                    const effectiveAngleDiff = Math.min(angleDiff, Math.PI * 2 - angleDiff);
+                    const angleEffect = 1 - (effectiveAngleDiff / Math.PI);
+                    
+                    const height = 40 + (normalizedDistance * 40) + (angleEffect * 20);
+                    bar.style.height = `${height}%`;
+                    
+                    // Add subtle color change based on position
+                    const hue = (index * 5) % 30; // Subtle hue variation
+                    bar.style.background = `linear-gradient(to top, hsl(${hue}, 100%, 50%), transparent)`;
+                    
+                    // Add glow intensity based on position
+                    const glowIntensity = 5 + (angleEffect * 15);
+                    bar.style.filter = `drop-shadow(0 0 ${glowIntensity}px var(--primary))`;
+                });
+            }
+        });
+        
+        // Reset on mouse leave
+        trackArtwork.addEventListener('mouseleave', () => {
+            trackArtwork.style.transform = '';
+            
+            // Reduce visualizer opacity
+            if (audioVisualizer) {
+                audioVisualizer.style.opacity = '0.3';
+                
+                // Reset bars
+                const bars = audioVisualizer.querySelectorAll('.bar');
+                bars.forEach((bar) => {
+                    bar.style.height = Math.floor(20 + Math.random() * 40) + '%';
+                    bar.style.background = 'linear-gradient(to top, var(--primary), transparent)';
+                    bar.style.filter = 'drop-shadow(0 0 8px var(--primary))';
+                });
+            }
+            
+            // Hide glow ring
+            if (glowRing) {
+                glowRing.style.opacity = '0';
+            }
+        });
+    }
+    
+    // Add parallax effect to hero background
+    const hero = document.querySelector('.hero');
+    if (hero) {
+        window.addEventListener('scroll', () => {
+            const scrollPos = window.scrollY;
+            const soundWaves = document.querySelector('.sound-waves');
+            if (soundWaves) {
+                soundWaves.style.transform = `translateY(${scrollPos * 0.2}px)`;
+                soundWaves.style.opacity = Math.max(0.2 - (scrollPos * 0.001), 0);
+            }
+        });
+    }
+    
+    // Add dynamic hover effect to track items
+    const trackItems = document.querySelectorAll('.track-item');
+    trackItems.forEach((item, index) => {
+        item.addEventListener('mouseenter', () => {
+            // Create an effect with slight delay based on index
+            item.style.transitionDelay = `${index * 0.03}s`;
+        });
+        
+        item.addEventListener('mouseleave', () => {
+            item.style.transitionDelay = '0s';
+        });
+    });
+    
+    // Simulate audio activity in the visualizer
+    function simulateAudioActivity() {
+        if (audioVisualizer && audioVisualizer.style.opacity < '0.5') {
+            const bars = audioVisualizer.querySelectorAll('.bar');
+            bars.forEach((bar) => {
+                const height = 20 + Math.random() * 40;
+                bar.style.height = `${height}%`;
+            });
+        }
+        
+        // Schedule next update
+        setTimeout(simulateAudioActivity, 150 + Math.random() * 250);
+    }
+    
+    // Start simulation
+    simulateAudioActivity();
+});
+
+// Favorites Management
+function toggleFavorite(trackData) {
+    const trackId = `${trackData.title}-${trackData.artist}`;
+    const existingIndex = favoriteTracks.findIndex(track => 
+        `${track.title}-${track.artist}` === trackId
+    );
+    
+    if (existingIndex > -1) {
+        // Remove from favorites
+        favoriteTracks.splice(existingIndex, 1);
+        showNotification('Verwijderd uit favorieten');
+    } else {
+        // Add to favorites
+        favoriteTracks.push(trackData);
+        showNotification('Toegevoegd aan favorieten');
+    }
+    
+    // Save to localStorage
+    localStorage.setItem('favoriteTracks', JSON.stringify(favoriteTracks));
+    
+    // Update UI
+    renderFavorites();
+    updateTrackHeartIcons();
+}
+
+function renderFavorites() {
+    if (!favoritesGrid) return;
+    
+    if (favoriteTracks.length === 0) {
+        if (emptyFavorites) emptyFavorites.style.display = 'flex';
+        favoritesGrid.innerHTML = '';
+        return;
+    }
+    
+    if (emptyFavorites) emptyFavorites.style.display = 'none';
+    
+    favoritesGrid.innerHTML = favoriteTracks.map(track => createTrackItem(track, true)).join('');
+    
+    // Add event listeners to the newly created favorite track items
+    document.querySelectorAll('.favorites-grid .track-item').forEach(item => {
+        const heartIcon = item.querySelector('.heart-icon');
+        if (heartIcon) {
+            heartIcon.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                const trackData = JSON.parse(item.dataset.track);
+                toggleFavorite(trackData);
+            });
+        }
+    });
+}
+
+function updateTrackHeartIcons() {
+    document.querySelectorAll('.track-item').forEach(item => {
+        const trackData = JSON.parse(item.dataset.track);
+        const trackId = `${trackData.title}-${trackData.artist}`;
+        const heartIcon = item.querySelector('.heart-icon');
+        
+        const isFavorite = favoriteTracks.some(track => 
+            `${track.title}-${track.artist}` === trackId
+        );
+        
+        if (heartIcon) {
+            heartIcon.className = isFavorite ? 
+                'heart-icon fas fa-heart favorited' : 
+                'heart-icon far fa-heart';
+        }
+    });
+}
+
+function toggleFavoritesVisibility() {
+    const favoritesSection = document.querySelector('.favorites-section');
+    if (!favoritesSection) return;
+    
+    favoritesSection.classList.toggle('hidden');
+    favoritesToggleBtn.classList.toggle('active');
+    
+    // Save preference
+    const isHidden = favoritesSection.classList.contains('hidden');
+    localStorage.setItem('hideFavorites', isHidden);
+}
+
+// Smooth Transitions
+function handleAudioTransition() {
+    if (isTransitioning) return;
+    
+    isTransitioning = true;
+    
+    // Apply visual transition effect
+    const trackArtwork = document.querySelector('.hero .track-artwork');
+    const trackInfo = document.querySelector('.hero .track-info');
+    
+    if (trackArtwork) trackArtwork.classList.add('transitioning');
+    if (trackInfo) trackInfo.classList.add('transitioning');
+    
+    // Trigger particles explosion
+    triggerParticlesExplosion();
+    
+    // Remove transition class after animation completes
+    clearTimeout(transitionTimeout);
+    transitionTimeout = setTimeout(() => {
+        if (trackArtwork) trackArtwork.classList.remove('transitioning');
+        if (trackInfo) trackInfo.classList.remove('transitioning');
+        isTransitioning = false;
+    }, 1500);
+}
+
+// Animated Background
+function initializeAnimatedBackground() {
+    if (!bgCanvas) return;
+    
+    ctx = bgCanvas.getContext('2d');
+    
+    // Set canvas size
+    resizeCanvas();
+    
+    // Handle window resize
+    window.addEventListener('resize', resizeCanvas);
+    
+    // Initialize particles
+    createParticles();
+    
+    // Start animation
+    animate();
+    
+    // Add audio listener for reactive animations
+    audioPlayer.addEventListener('play', enhanceParticles);
+}
+
+function resizeCanvas() {
+    if (!bgCanvas) return;
+    
+    bgCanvas.width = window.innerWidth;
+    bgCanvas.height = window.innerHeight;
+}
+
+function createParticles() {
+    particlesArray = [];
+    
+    const numberOfParticles = Math.floor(window.innerWidth * window.innerHeight / 15000);
+    
+    for (let i = 0; i < numberOfParticles; i++) {
+        const size = Math.random() * 5 + 1;
+        const x = Math.random() * bgCanvas.width;
+        const y = Math.random() * bgCanvas.height;
+        const directionX = Math.random() * 1 - 0.5;
+        const directionY = Math.random() * 1 - 0.5;
+        const color = getRandomColor();
+        
+        particlesArray.push(new Particle(x, y, directionX, directionY, size, color));
+    }
+}
+
+function getRandomColor() {
+    const colors = [
+        '#E6282B', // Primary
+        '#CF322D', // Darker Primary
+        '#FF5253', // Lighter Primary
+        '#6C63FF', // Purple
+        '#00D1FF', // Cyan
+        '#FFFFFF'  // White (rarely)
+    ];
+    
+    // Bias toward primary color
+    if (Math.random() < 0.6) {
+        return colors[0];
+    }
+    
+    return colors[Math.floor(Math.random() * colors.length)];
+}
+
+function enhanceParticles() {
+    // Add a burst of new particles when music plays
+    for (let i = 0; i < 20; i++) {
+        const size = Math.random() * 8 + 2;
+        const x = Math.random() * bgCanvas.width;
+        const y = Math.random() * bgCanvas.height;
+        const directionX = Math.random() * 3 - 1.5;
+        const directionY = Math.random() * 3 - 1.5;
+        const color = getRandomColor();
+        
+        particlesArray.push(new Particle(x, y, directionX, directionY, size, color));
+    }
+    
+    // After a while, return to normal
+    setTimeout(() => {
+        if (particlesArray.length > 100) {
+            particlesArray = particlesArray.slice(0, 100);
+        }
+    }, 5000);
+}
+
+function triggerParticlesExplosion() {
+    const centerX = bgCanvas.width / 2;
+    const centerY = bgCanvas.height / 2;
+    
+    for (let i = 0; i < 50; i++) {
+        const size = Math.random() * 6 + 2;
+        const angle = Math.random() * Math.PI * 2;
+        const speed = Math.random() * 5 + 2;
+        const directionX = Math.cos(angle) * speed;
+        const directionY = Math.sin(angle) * speed;
+        const color = getRandomColor();
+        
+        particlesArray.push(new Particle(centerX, centerY, directionX, directionY, size, color));
+    }
+}
+
+function animate() {
+    if (!ctx || !bgCanvas) return;
+    
+    ctx.clearRect(0, 0, bgCanvas.width, bgCanvas.height);
+    
+    for (let i = 0; i < particlesArray.length; i++) {
+        particlesArray[i].update();
+        particlesArray[i].draw();
+    }
+    
+    // Connect close particles with lines
+    connectParticles();
+    
+    animationId = requestAnimationFrame(animate);
+}
+
+function connectParticles() {
+    for (let a = 0; a < particlesArray.length; a++) {
+        for (let b = a; b < particlesArray.length; b++) {
+            const dx = particlesArray[a].x - particlesArray[b].x;
+            const dy = particlesArray[a].y - particlesArray[b].y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            
+            if (distance < 100) {
+                ctx.beginPath();
+                ctx.strokeStyle = particlesArray[a].color;
+                ctx.globalAlpha = 1 - (distance / 100);
+                ctx.lineWidth = 0.5;
+                ctx.moveTo(particlesArray[a].x, particlesArray[a].y);
+                ctx.lineTo(particlesArray[b].x, particlesArray[b].y);
+                ctx.stroke();
+                ctx.closePath();
+                ctx.globalAlpha = 1;
+            }
+        }
+    }
+}
+
+// Particle Class
+class Particle {
+    constructor(x, y, directionX, directionY, size, color) {
+        this.x = x;
+        this.y = y;
+        this.directionX = directionX;
+        this.directionY = directionY;
+        this.size = size;
+        this.color = color;
+    }
+    
+    draw() {
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+        ctx.fillStyle = this.color;
+        ctx.fill();
+        ctx.closePath();
+    }
+    
+    update() {
+        // Bounce off edges
+        if (this.x > bgCanvas.width || this.x < 0) {
+            this.directionX = -this.directionX;
+        }
+        
+        if (this.y > bgCanvas.height || this.y < 0) {
+            this.directionY = -this.directionY;
+        }
+        
+        // Add some random movement
+        if (Math.random() < 0.01) {
+            this.directionX += (Math.random() - 0.5) * 0.2;
+            this.directionY += (Math.random() - 0.5) * 0.2;
+        }
+        
+        // Move particle
+        this.x += this.directionX;
+        this.y += this.directionY;
+        
+        // Draw
+        this.draw();
+    }
+}
+
+// Update track item creation - remove favorites functionality
+function createTrackItem(track, isFavoriteSection = false) {
+    const { title, artist, image, timestamp, info, genre = "SOUL MOTOWN AND DANCE CLASSICS" } = track;
+    
+    // Format time
+    const formattedTime = formatTimeAgo(timestamp);
+    
+    return `
+    <div class="track-item" data-track='${JSON.stringify(track)}'>
+        <div class="track-artwork">
+            <img src="${image}" alt="${title} by ${artist}" loading="lazy">
+            <div class="track-overlay">
+                <div class="track-actions">
+                    <button class="play-icon">
+                        <i class="fas fa-play"></i>
+                    </button>
+                    <button class="info-icon">
+                        <i class="fas fa-info-circle"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+        <div class="track-info">
+            <div class="track-title-artist">
+                <h3 class="track-title">${title}</h3>
+                <p class="track-artist">${artist}</p>
+            </div>
+            <div class="track-genre">${genre}</div>
+            <span class="track-time">${formattedTime}</span>
+        </div>
+    </div>
+    `;
+}
+
+// Track Management
+async function updateTracks() {
+    try {
+        const tracks = await fetchRecentTracks();
+        if (!tracks || !tracks.length) return;
+        
+        // Update recent tracks list
+        recentTracks = tracks;
+        
+        // Update tracks display
+        if (recentTracksContainer) {
+            recentTracksContainer.innerHTML = tracks.map(track => createTrackItem(track)).join('');
+            
+            // Track item click plays current stream
+            document.querySelectorAll('.tracks-grid .track-item').forEach(item => {
+                // Track item click plays current stream
+                item.addEventListener('click', function() {
+                    if (!isPlaying) {
+                        togglePlayPause();
+                    }
+                    
+                    // Transition effect
+                    handleAudioTransition();
+                });
+            });
+        }
+    } catch (error) {
+        console.error('Error updating tracks:', error);
+    }
+}
+
+// View Controls
+function initializeViewControls() {
+    const viewButtons = document.querySelectorAll('.view-btn');
+    const tracksGrid = document.querySelector('.tracks-grid');
+    
+    // Set event listeners for view toggles
+    viewButtons.forEach(button => {
+        button.addEventListener('click', () => {
+            const viewMode = button.dataset.view;
+            
+            // Update active state
+            viewButtons.forEach(btn => btn.classList.remove('active'));
+            button.classList.add('active');
+            
+            // Save preference
+            localStorage.setItem('trackViewMode', viewMode);
+            
+            // Apply view mode
+            if (viewMode === 'grid') {
+                tracksGrid.classList.remove('list-view');
+                tracksGrid.classList.add('grid-view');
+            } else {
+                tracksGrid.classList.remove('grid-view');
+                tracksGrid.classList.add('list-view');
+            }
+        });
+    });
 }
 
