@@ -9,7 +9,6 @@ let minimumLoadingTime = 2000; // Minimum 2 seconds loading time
 let loadingStartTime = Date.now();
 
 // Initialize loading screen
-
 document.addEventListener('DOMContentLoaded', () => {
     // Add loading class to body
     document.body.classList.add('loading');
@@ -481,12 +480,15 @@ function isSuperRadioTrack(artistName) {
         'super -radio',
 		'Super- Radio',
 		'super- radio',
-		'SOUL MOTOWN AND DANCE CLASSICS +',
-		'soulmotownanddanceclassics+',
-		'SOULMOTOWNANDDANCECLASSICS+'
+        'SOUL MOTOWN AND DANCE CLASSICS +',
+        'soul motown and dance classics +',
+        'soul motown and dance classics+',
+        'SOULMOTOWNANDDANCECLASSICS+',
+        'soulmotownanddanceclassics+',
+        'Dionna Warwick,Stevie Wonder,L.T.D,Kool & The Gang'
     ];
     
-    return patterns.some(pattern => normalized.includes(pattern));
+    return patterns.some(pattern => normalized.includes(pattern.toLowerCase()));
 }
 
 function generateDefaultImage(text, type = 'track') {
