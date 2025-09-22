@@ -9,6 +9,7 @@ let minimumLoadingTime = 2000; // Minimum 2 seconds loading time
 let loadingStartTime = Date.now();
 
 // Initialize loading screen
+
 document.addEventListener('DOMContentLoaded', () => {
     // Add loading class to body
     document.body.classList.add('loading');
@@ -479,7 +480,10 @@ function isSuperRadioTrack(artistName) {
         'superradio',
         'super -radio',
 		'Super- Radio',
-		'super- radio'
+		'super- radio',
+		'SOUL MOTOWN AND DANCE CLASSICS +',
+		'soulmotownanddanceclassics+',
+		'SOULMOTOWNANDDANCECLASSICS+'
     ];
     
     return patterns.some(pattern => normalized.includes(pattern));
