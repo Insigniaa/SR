@@ -19,9 +19,37 @@
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+    <!-- Loading Screen -->
+    <div id="loading-screen" class="loading-screen">
+        <div class="loading-content">
+            <div class="loading-logo">
+                <div class="radio-tower">
+                    <div class="tower-base"></div>
+                    <div class="tower-mast"></div>
+                    <div class="radio-waves-loading">
+                        <div class="wave wave-1"></div>
+                        <div class="wave wave-2"></div>
+                        <div class="wave wave-3"></div>
+                    </div>
+                </div>
+                <h1 class="loading-title">Super Radio</h1>
+                <p class="loading-subtitle">Live Radio & Hits</p>
+            </div>
+            <div class="loading-progress">
+                <div class="progress-bar">
+                    <div class="progress-fill"></div>
+                </div>
+                <div class="loading-text">Tuning in...</div>
+            </div>
+        </div>
+    </div>
+
     <div class="animated-background">
         <canvas id="bg-canvas"></canvas>
     </div>
+    
+    <!-- Radio Waves Background -->
+    <div class="radio-waves"></div>
     
     <div class="app-wrapper">
         <!-- Header -->
@@ -47,27 +75,47 @@
         <!-- Main Content -->
         <main>
             <!-- Hero Section -->
-            <section class="hero">
+            <section class="hero" role="main" aria-label="Currently playing track">
                 <div class="hero-bg"></div>
-                <div class="sound-waves">
-                    <span></span><span></span><span></span><span></span><span></span>
-                    <span></span><span></span><span></span><span></span><span></span>
+        <canvas class="particle-canvas" aria-hidden="true"></canvas>
+        
+        <!-- Floating Music Notes -->
+        <div class="floating-notes" aria-hidden="true">
+            <div class="music-note note-1">♪</div>
+            <div class="music-note note-2">♫</div>
+            <div class="music-note note-3">♪</div>
+            <div class="music-note note-4">♬</div>
+            <div class="music-note note-5">♩</div>
+            <div class="music-note note-6">♪</div>
+        </div>
+        
+        <div class="sound-waves enhanced-waves" aria-hidden="true">
+                    <div class="wave-bar" data-frequency="60"></div>
+                    <div class="wave-bar" data-frequency="170"></div>
+                    <div class="wave-bar" data-frequency="310"></div>
+                    <div class="wave-bar" data-frequency="600"></div>
+                    <div class="wave-bar" data-frequency="1000"></div>
+                    <div class="wave-bar" data-frequency="3000"></div>
+                    <div class="wave-bar" data-frequency="6000"></div>
+                    <div class="wave-bar" data-frequency="12000"></div>
+                    <div class="wave-bar" data-frequency="14000"></div>
+                    <div class="wave-bar" data-frequency="16000"></div>
                 </div>
                 <div class="container">
                     <div class="current-track">
-                        <div class="track-artwork">
-                            <div class="live-badge">
-                                <div class="pulse"></div>
+                        <div class="track-artwork" role="img" aria-label="Album artwork for current track">
+                            <div class="live-badge" aria-label="Live broadcast indicator">
+                                <div class="pulse" aria-hidden="true"></div>
                                 <span>LIVE</span>
                             </div>
-                            <img src="" alt="Current Track" class="track-img">
-                            <div class="default-cover">
+                            <img src="" alt="Current Track Album Art" class="track-img">
+                            <div class="default-cover" aria-hidden="true">
                                 <div class="music-wave">
                                     <span></span><span></span><span></span>
                                     <span></span><span></span>
                                 </div>
                             </div>
-                            <div class="audio-visualizer">
+                            <div class="audio-visualizer" aria-hidden="true">
                                 <span class="bar"></span>
                                 <span class="bar"></span>
                                 <span class="bar"></span>
@@ -97,33 +145,41 @@
                                 <span class="bar"></span>
                                 <span class="bar"></span>
                             </div>
-                            <div class="glow-ring"></div>
+                            <div class="glow-ring" aria-hidden="true"></div>
                         </div>
                         <div class="track-info">
-                            <div class="now-playing-label">NU OP SUPER RADIO</div>
-                            <h1 class="track-title">Loading...</h1>
-                            <p class="track-artist">Loading...</p>
-                            <div class="track-progress">
-                                <div class="progress-bar">
+                            <div class="now-playing-label" aria-label="Now playing on Super Radio">NU OP SUPER RADIO</div>
+                            <h1 class="track-title" id="current-track-title">Loading...</h1>
+                            <p class="track-artist" id="current-track-artist">Loading...</p>
+                            <div class="track-progress" role="progressbar" aria-label="Track progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+                                <div class="progress-bar" tabindex="0" role="slider" aria-label="Seek track position">
                                     <div class="progress"></div>
                                 </div>
-                                <div class="time-info">
-                                    <span class="current-time">0:00</span>
-                                    <span class="duration">0:00</span>
+                                <div class="time-info" aria-live="polite">
+                                    <span class="current-time" aria-label="Current time">0:00</span>
+                                    <span class="duration" aria-label="Total duration">0:00</span>
                                 </div>
                             </div>
-                            <div class="track-actions">
-                                <button class="action-btn share-btn" title="Delen">
-                                    <i class="fas fa-share-alt"></i>
+                            <div class="track-actions" role="group" aria-label="Track actions">
+                                <button class="action-btn share-btn" 
+                                        title="Deel huidige track" 
+                                        aria-label="Deel huidige track op sociale media"
+                                        tabindex="0">
+                                    <i class="fas fa-share-alt" aria-hidden="true"></i>
+                                    <span class="sr-only">Delen</span>
                                 </button>
-                                <button class="action-btn info-btn" title="Info">
-                                    <i class="fas fa-info-circle"></i>
+                                <button class="action-btn info-btn" 
+                                        title="Track informatie" 
+                                        aria-label="Toon meer informatie over huidige track"
+                                        tabindex="0">
+                                    <i class="fas fa-info-circle" aria-hidden="true"></i>
+                                    <span class="sr-only">Info</span>
                                 </button>
                             </div>
                         </div>
                     </div>
                 </div>
-                <div class="hero-decorations">
+                <div class="hero-decorations" aria-hidden="true">
                     <div class="music-note note-1"><i class="fas fa-music"></i></div>
                     <div class="music-note note-2"><i class="fas fa-music"></i></div>
                     <div class="music-note note-3"><i class="fas fa-music"></i></div>
@@ -159,13 +215,6 @@
                 <div class="container">
                     <div class="section-header">
                         <h2>Radio Programma</h2>
-                        <div class="day-selector">
-                            <button class="day-btn active">Vandaag</button>
-                            <button class="day-btn">Morgen</button>
-                            <button class="day-btn">Woensdag</button>
-                            <button class="day-btn">Donderdag</button>
-                            <button class="day-btn">Vrijdag</button>
-                        </div>
                     </div>
                     <div class="schedule-container">
                         <!-- Schedule content will be dynamically inserted here by JavaScript -->
