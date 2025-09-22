@@ -483,8 +483,10 @@ function isSuperRadioTrack(artistName) {
         'SOUL MOTOWN AND DANCE CLASSICS +',
         'soul motown and dance classics +',
         'soul motown and dance classics+',
+        'soul motown and dance classics',
         'SOULMOTOWNANDDANCECLASSICS+',
         'soulmotownanddanceclassics+',
+        'soulmotownanddanceclassics',
         'Dionna Warwick,Stevie Wonder,L.T.D,Kool & The Gang'
     ];
     
