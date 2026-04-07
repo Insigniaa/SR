@@ -1,23 +1,27 @@
 <!DOCTYPE html>
 <html lang="nl">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Super Radio | Live Radio & Hits</title>
-    <meta name="description" content="Luister live naar Super Radio - De ultieme hitradio met non-stop muziek en entertainment">
+    <meta name="description"
+        content="Luister live naar Super Radio - De ultieme hitradio met non-stop muziek en entertainment">
     <link rel="manifest" href="manifest.json">
-    
+
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-    
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&display=swap"
+        rel="stylesheet">
+
     <!-- Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
+
     <!-- Styles -->
     <link rel="stylesheet" href="styles.css">
 </head>
+
 <body>
     <!-- Loading Screen -->
     <div id="loading-screen" class="loading-screen">
@@ -44,287 +48,155 @@
         </div>
     </div>
 
-    <div class="animated-background">
-        <canvas id="bg-canvas"></canvas>
+    <!-- Glass Background -->
+    <div class="glass-background">
+        <div class="orb orb-1"></div>
+        <div class="orb orb-2"></div>
+        <div class="orb orb-3"></div>
     </div>
-    
-    <!-- Radio Waves Background -->
-    <div class="radio-waves"></div>
-    
+
     <div class="app-wrapper">
-        <!-- Header -->
-        <header class="main-header">
+        <!-- Floating Header -->
+        <header class="glass-header">
             <div class="container">
                 <div class="logo">
-                    <div class="station-frequency">Super Radio</div>
+                    <i class="fas fa-broadcast-tower logo-icon"></i>
+                    <span class="logo-text">SUPER<span class="highlight">RADIO</span></span>
                 </div>
-                <nav class="main-nav">
+                <nav class="desktop-nav">
                     <ul>
-                        <li><a href="#" class="active">Home</a></li>
-                        <li><a href="#news">Nieuws</a></li>
-                        <li><a href="#schedule">Programma's</a></li>
+                        <li><a href="#" class="nav-link active">Home</a></li>
+                        <li><a href="#news" class="nav-link">Nieuws</a></li>
+                        <li><a href="#schedule" class="nav-link">Programma's</a></li>
                     </ul>
                 </nav>
-                <button class="listen-live-btn">
-                    <i class="fas fa-broadcast-tower"></i>
-                    <span>LUISTER LIVE</span>
-                </button>
+                <div class="header-actions">
+                    <button class="listen-live-btn" aria-label="Listen Live">
+                        <span class="icon-container"><i class="fas fa-play"></i></span>
+                        <span class="btn-text">LIVE</span>
+                    </button>
+                    <button class="mobile-menu-btn" aria-label="Open Menu">
+                        <i class="fas fa-bars"></i>
+                    </button>
+                </div>
             </div>
         </header>
 
         <!-- Main Content -->
         <main>
-            <!-- Hero Section -->
-            <section class="hero" role="main" aria-label="Currently playing track">
-                <div class="hero-bg"></div>
-        <canvas class="particle-canvas" aria-hidden="true"></canvas>
-        
-        <!-- Floating Music Notes -->
-        <div class="floating-notes" aria-hidden="true">
-            <div class="music-note note-1">♪</div>
-            <div class="music-note note-2">♫</div>
-            <div class="music-note note-3">♪</div>
-            <div class="music-note note-4">♬</div>
-            <div class="music-note note-5">♩</div>
-            <div class="music-note note-6">♪</div>
-        </div>
-        
-        <div class="sound-waves enhanced-waves" aria-hidden="true">
-                    <div class="wave-bar" data-frequency="60"></div>
-                    <div class="wave-bar" data-frequency="170"></div>
-                    <div class="wave-bar" data-frequency="310"></div>
-                    <div class="wave-bar" data-frequency="600"></div>
-                    <div class="wave-bar" data-frequency="1000"></div>
-                    <div class="wave-bar" data-frequency="3000"></div>
-                    <div class="wave-bar" data-frequency="6000"></div>
-                    <div class="wave-bar" data-frequency="12000"></div>
-                    <div class="wave-bar" data-frequency="14000"></div>
-                    <div class="wave-bar" data-frequency="16000"></div>
-                </div>
-                <div class="container">
-                    <div class="current-track">
-                        <div class="track-artwork" role="img" aria-label="Album artwork for current track">
-                            <div class="live-badge" aria-label="Live broadcast indicator">
-                                <div class="pulse" aria-hidden="true"></div>
-                                <span>LIVE</span>
-                            </div>
-                            <img src="" alt="Current Track Album Art" class="track-img">
-                            <div class="default-cover" aria-hidden="true">
-                                <div class="music-wave">
-                                    <span></span><span></span><span></span>
-                                    <span></span><span></span>
-                                </div>
-                            </div>
-                            <div class="audio-visualizer" aria-hidden="true">
-                                <span class="bar"></span>
-                                <span class="bar"></span>
-                                <span class="bar"></span>
-                                <span class="bar"></span>
-                                <span class="bar"></span>
-                                <span class="bar"></span>
-                                <span class="bar"></span>
-                                <span class="bar"></span>
-                                <span class="bar"></span>
-                                <span class="bar"></span>
-                                <span class="bar"></span>
-                                <span class="bar"></span>
-                                <span class="bar"></span>
-                                <span class="bar"></span>
-                                <span class="bar"></span>
-                                <span class="bar"></span>
-                                <span class="bar"></span>
-                                <span class="bar"></span>
-                                <span class="bar"></span>
-                                <span class="bar"></span>
-                                <span class="bar"></span>
-                                <span class="bar"></span>
-                                <span class="bar"></span>
-                                <span class="bar"></span>
-                                <span class="bar"></span>
-                                <span class="bar"></span>
-                                <span class="bar"></span>
-                                <span class="bar"></span>
-                            </div>
-                            <div class="glow-ring" aria-hidden="true"></div>
+            <!-- Hero / Player Section -->
+            <section class="hero-section">
+                <div class="hero-container">
+                    <div class="main-artwork-container">
+                        <div class="canvas-container">
+                            <canvas id="visualizer-canvas"></canvas>
                         </div>
-                        <div class="track-info">
-                            <div class="now-playing-label" aria-label="Now playing on Super Radio">NU OP SUPER RADIO</div>
-                            <h1 class="track-title" id="current-track-title">Loading...</h1>
-                            <p class="track-artist" id="current-track-artist">Loading...</p>
-                            <div class="track-progress" role="progressbar" aria-label="Track progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
-                                <div class="progress-bar" tabindex="0" role="slider" aria-label="Seek track position">
-                                    <div class="progress"></div>
-                                </div>
-                                <div class="time-info" aria-live="polite">
-                                    <span class="current-time" aria-label="Current time">0:00</span>
-                                    <span class="duration" aria-label="Total duration">0:00</span>
-                                </div>
-                            </div>
-                            <div class="track-actions" role="group" aria-label="Track actions">
-                                <button class="action-btn share-btn" 
-                                        title="Deel huidige track" 
-                                        aria-label="Deel huidige track op sociale media"
-                                        tabindex="0">
-                                    <i class="fas fa-share-alt" aria-hidden="true"></i>
-                                    <span class="sr-only">Delen</span>
-                                </button>
-                                <button class="action-btn info-btn" 
-                                        title="Track informatie" 
-                                        aria-label="Toon meer informatie over huidige track"
-                                        tabindex="0">
-                                    <i class="fas fa-info-circle" aria-hidden="true"></i>
-                                    <span class="sr-only">Info</span>
-                                </button>
+                        <div class="artwork-wrapper">
+                            <img src="" alt="Album Art" class="main-artwork track-img">
+                            <div class="artwork-glow"></div>
+                        </div>
+                        <div class="live-indicator">
+                            <span class="pulse-dot"></span>
+                            <span class="live-text">LIVE ON AIR</span>
+                            <span class="listener-count-badge"><i class="fas fa-user"></i> <span
+                                    class="count">0</span></span>
+                        </div>
+                    </div>
+
+                    <div class="track-details">
+                        <h1 class="hero-title track-title">Loading...</h1>
+                        <p class="hero-artist track-artist">Loading...</p>
+
+                        <div class="hero-controls">
+                            <button class="hero-play-btn play-pause-btn">
+                                <i class="fas fa-play"></i>
+                            </button>
+                            <div class="volume-container">
+                                <i class="fas fa-volume-up"></i>
+                                <input type="range" class="volume-slider" min="0" max="100" value="80">
                             </div>
                         </div>
                     </div>
-                </div>
-                <div class="hero-decorations" aria-hidden="true">
-                    <div class="music-note note-1"><i class="fas fa-music"></i></div>
-                    <div class="music-note note-2"><i class="fas fa-music"></i></div>
-                    <div class="music-note note-3"><i class="fas fa-music"></i></div>
                 </div>
             </section>
 
             <!-- Recent Tracks -->
-            <section class="recent-tracks section">
+            <section class="content-section">
                 <div class="container">
                     <div class="section-header">
-                        <h2>Recente Nummers</h2>
-                        <div class="view-controls">
-                            <button class="view-btn" data-view="grid" title="Grid View">
-                                <i class="fas fa-th-large"></i>
-                                <span class="keyboard-shortcut">G</span>
-                            </button>
-                            <button class="view-btn" data-view="list" title="List View">
-                                <i class="fas fa-list"></i>
-                                <span class="keyboard-shortcut">L</span>
-                            </button>
-                            <button class="refresh-btn" title="Refresh">
-                                <i class="fas fa-sync-alt"></i>
-                                <span class="keyboard-shortcut">R</span>
-                            </button>
-                        </div>
+                        <h2><i class="fas fa-history"></i> Just Played</h2>
                     </div>
-                    <div class="tracks-grid"></div>
+                    <div class="tracks-grid">
+                        <!-- Tracks injected here -->
+                    </div>
                 </div>
             </section>
 
             <!-- Schedule -->
-            <section id="schedule" class="schedule">
+            <section id="schedule" class="content-section">
                 <div class="container">
                     <div class="section-header">
-                        <h2>Radio Programma</h2>
+                        <h2><i class="fas fa-calendar-alt"></i> Schedule</h2>
                     </div>
                     <div class="schedule-container">
-                        <!-- Schedule content will be dynamically inserted here by JavaScript -->
+                        <!-- Schedule injected here -->
                     </div>
                 </div>
             </section>
 
-            <!-- Music News -->
-            <section id="news" class="music-news">
+            <!-- News -->
+            <section id="news" class="content-section">
                 <div class="container">
                     <div class="section-header">
-                        <h2>Entertainment News</h2>
+                        <h2><i class="fas fa-newspaper"></i> News</h2>
                     </div>
                     <div class="news-grid">
-                        <!-- News items will be added here -->
+                        <!-- News injected here -->
                     </div>
                 </div>
             </section>
-
         </main>
 
-        <!-- Player Bar -->
-        <div class="player-bar">
-            <div class="container">
-                <div class="now-playing">
-                    <div class="track-artwork">
-                        <img src="" alt="Now Playing" class="track-img">
-                        <div class="default-cover">
-                            <div class="music-wave">
-                                <span></span><span></span><span></span>
-                                <span></span><span></span>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="track-info">
-                        <div class="track-title">Loading...</div>
-                        <div class="track-artist">Loading...</div>
-                    </div>
-                </div>
-                
-                <div class="player-controls">
-                    <button class="play-pause-btn">
-                        <i class="fas fa-play"></i>
-                        <span class="keyboard-shortcut">Space</span>
-                    </button>
-                    <div class="volume-control">
-                        <i class="fas fa-volume-up volume-icon"></i>
-                        <input type="range" class="volume-slider" min="0" max="100" value="80">
-                    </div>
+        <!-- Mobile Menu Overlay -->
+        <div class="mobile-menu-content">
+            <nav>
+                <ul>
+                    <li><a href="#" class="active">Home</a></li>
+                    <li><a href="#news">Nieuws</a></li>
+                    <li><a href="#schedule">Programma's</a></li>
+                </ul>
+            </nav>
+        </div>
+    </div>
+
+    <!-- Sticky Bottom Player -->
+    <div id="sticky-player" class="sticky-player hidden">
+        <div class="sticky-container">
+            <div class="sticky-track-info">
+                <img src="" alt="Track Art" class="sticky-art track-img">
+                <div class="sticky-text">
+                    <div class="sticky-title track-title">Loading...</div>
+                    <div class="sticky-artist track-artist">Loading...</div>
                 </div>
             </div>
-        </div>
 
-        <!-- Mobile Menu -->
-        <div class="mobile-menu">
-            <button class="mobile-menu-toggle">
-                <i class="fas fa-bars"></i>
-            </button>
-            <div class="mobile-menu-content">
-                <nav>
-                    <ul>
-                        <li><a href="#" class="active">Home</a></li>
-                        <li><a href="#news">Nieuws</a></li>
-                        <li><a href="#schedule">Programma's</a></li>
-                    </ul>
-                </nav>
+            <div class="sticky-controls">
+                <button class="sticky-play-btn play-pause-btn">
+                    <i class="fas fa-play"></i>
+                </button>
+            </div>
+
+            <div class="sticky-volume">
+                <i class="fas fa-volume-up"></i>
+                <input type="range" class="volume-slider" min="0" max="100" value="80">
             </div>
         </div>
     </div>
 
-    <script src="script.js"></script>
-    <script>
-        // Smooth Scrolling voor navigatie
-        document.addEventListener('DOMContentLoaded', function() {
-            // Selecteer alle navigatielinks die beginnen met # maar niet enkel # zijn
-            const navLinks = document.querySelectorAll('a[href^="#"]:not([href="#"])');
-            
-            navLinks.forEach(link => {
-                link.addEventListener('click', function(e) {
-                    e.preventDefault();
-                    
-                    // Get het doel van de link
-                    const targetId = this.getAttribute('href');
-                    const targetElement = document.querySelector(targetId);
-                    
-                    if (targetElement) {
-                        // Markeer de juiste link als actief
-                        document.querySelectorAll('.main-nav a, .mobile-menu-content a').forEach(navLink => {
-                            navLink.classList.remove('active');
-                        });
-                        document.querySelectorAll(`a[href="${targetId}"]`).forEach(navLink => {
-                            navLink.classList.add('active');
-                        });
-                        
-                        // Sluit mobiel menu als het open is
-                        const mobileMenuContent = document.querySelector('.mobile-menu-content');
-                        if (mobileMenuContent && mobileMenuContent.classList.contains('open')) {
-                            mobileMenuContent.classList.remove('open');
-                        }
-                        
-                        // Scroll naar het doel met een vloeiende animatie
-                        window.scrollTo({
-                            top: targetElement.offsetTop - 80, // Marge voor de header
-                            behavior: 'smooth'
-                        });
-                    }
-                });
-            });
-        });
-    </script>
-</body>
-</html>
+    <!-- Notification Container -->
+    <div class="notification-container"></div>
 
+    <script type="module" src="js/main.js"></script>
+</body>
+
+</html>

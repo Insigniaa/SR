@@ -15,3 +15,7 @@ Thumbs.db
 .vscode
 *.swp
 *.swo
+
+# Large archives and backups
+*.rar
+*.bak
