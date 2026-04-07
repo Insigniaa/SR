@@ -240,6 +240,19 @@ export function updateCurrentTrackUI(track) {
     trackArtistEls.forEach(el => el.textContent = artist);
     document.title = `${title} - ${artist} | Super Radio`;
 
+    // Update Media Session API
+    if ('mediaSession' in navigator) {
+        navigator.mediaSession.metadata = new MediaMetadata({
+            title: title,
+            artist: artist,
+            album: 'Super Radio',
+            artwork: [
+                { src: image, sizes: '512x512', type: 'image/png' },
+                { src: 'images/logo.png', sizes: '512x512', type: 'image/png' }
+            ]
+        });
+    }
+
     // Update Images
     trackImgEls.forEach(img => {
         // Handle Super Radio logic for generating cover/placeholder

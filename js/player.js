@@ -17,6 +17,13 @@ export class SuperAudioPlayer {
         // Network state listeners
         window.addEventListener('online', () => this.handleOnline());
         window.addEventListener('offline', () => this.handleOffline());
+
+        // Media Session handlers
+        if ('mediaSession' in navigator) {
+            navigator.mediaSession.setActionHandler('play', () => this.play());
+            navigator.mediaSession.setActionHandler('pause', () => this.pause());
+            navigator.mediaSession.setActionHandler('stop', () => this.pause());
+        }
     }
 
     togglePlay() {
@@ -53,6 +60,10 @@ export class SuperAudioPlayer {
         window.dispatchEvent(new CustomEvent('playerStateChanged', {
             detail: { isPlaying: this.isPlaying }
         }));
+
+        if ('mediaSession' in navigator) {
+            navigator.mediaSession.playbackState = playing ? 'playing' : 'paused';
+        }
     }
 
     handleError(error) {
