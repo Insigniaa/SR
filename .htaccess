@@ -1,57 +1,76 @@
-# Enable rewriting
+# ============================================================================
+# LET OP: GitHub Pages leest dit bestand niet. Zolang de site daar draait doet
+# niets hieronder iets. Het staat er voor het geval de site naar Apache
+# verhuist. Op Netlify of Cloudflare Pages heb je in plaats hiervan een
+# _headers-bestand nodig.
+# ============================================================================
+
 RewriteEngine On
 
-# Force HTTPS
+# HTTPS afdwingen
 RewriteCond %{HTTPS} off
 RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
 
-# Remove .html extension
+# .html-extensie weglaten
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteCond %{REQUEST_FILENAME}.html -f
 RewriteRule ^([^\.]+)$ $1.html [NC,L]
 
-# Custom error pages
 ErrorDocument 404 /404.html
 ErrorDocument 500 /500.html
 
-# Enable CORS
-Header set Access-Control-Allow-Origin "*"
-
-# Security headers
-Header set X-Content-Type-Options "nosniff"
-Header set X-Frame-Options "SAMEORIGIN"
-Header set X-XSS-Protection "1; mode=block"
-Header set Referrer-Policy "strict-origin-when-cross-origin"
-Header set Permissions-Policy "geolocation=(), microphone=(), camera=()"
-
-# Cache Control
-<FilesMatch "\.(html|htm)$">
-    Header set Cache-Control "max-age=0, no-cache, no-store, must-revalidate"
-    Header set Pragma "no-cache"
-    Header set Expires "Wed, 11 Jan 1984 05:00:00 GMT"
-</FilesMatch>
-
-<FilesMatch "\.(css|js|jpg|jpeg|png|gif|ico|woff2|woff|ttf)$">
-    Header set Cache-Control "max-age=31536000, public"
-</FilesMatch>
-
-# Compression
-<IfModule mod_deflate.c>
-    AddOutputFilterByType DEFLATE text/plain
-    AddOutputFilterByType DEFLATE text/html
-    AddOutputFilterByType DEFLATE text/xml
-    AddOutputFilterByType DEFLATE text/css
-    AddOutputFilterByType DEFLATE application/xml
-    AddOutputFilterByType DEFLATE application/xhtml+xml
-    AddOutputFilterByType DEFLATE application/rss+xml
-    AddOutputFilterByType DEFLATE application/javascript
-    AddOutputFilterByType DEFLATE application/x-javascript
-</IfModule>
-
-# Prevent directory listing
 Options -Indexes
 
-# Protect against XSS attacks
 <IfModule mod_headers.c>
-    Header set Content-Security-Policy "default-src 'self' https: data: 'unsafe-inline' 'unsafe-eval'; img-src 'self' data: https:; font-src 'self' data: https:; media-src 'self' https:;"
-</IfModule> 
+    Header set X-Content-Type-Options "nosniff"
+    Header set X-Frame-Options "SAMEORIGIN"
+    Header set Referrer-Policy "strict-origin-when-cross-origin"
+    Header set Permissions-Policy "geolocation=(), microphone=(), camera=(), interest-cohort=()"
+    Header set Cross-Origin-Opener-Policy "same-origin"
+
+    # Content Security Policy zonder 'unsafe-eval'. De inline stijl in de
+    # statuspagina's vereist nog 'unsafe-inline' voor style-src.
+    Header set Content-Security-Policy "default-src 'self'; \
+script-src 'self'; \
+style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; \
+font-src 'self' https://fonts.gstatic.com; \
+img-src 'self' data: https:; \
+media-src 'self' https://stream.laut.fm; \
+connect-src 'self' https://api.laut.fm https://itunes.apple.com https://api.rss2json.com https://api.allorigins.win https://api.codetabs.com; \
+frame-ancestors 'self'; \
+base-uri 'self'; \
+form-action 'self'"
+
+    # Geen Access-Control-Allow-Origin "*" meer: die stond er zonder reden en
+    # zette elke reactie open voor willekeurige sites.
+</IfModule>
+
+<IfModule mod_expires.c>
+    ExpiresActive On
+    ExpiresByType text/html "access plus 0 seconds"
+    ExpiresByType text/css "access plus 1 year"
+    ExpiresByType application/javascript "access plus 1 year"
+    ExpiresByType image/png "access plus 1 year"
+    ExpiresByType image/jpeg "access plus 1 year"
+    ExpiresByType image/x-icon "access plus 1 year"
+</IfModule>
+
+<IfModule mod_headers.c>
+    <FilesMatch "\.(html|json)$">
+        Header set Cache-Control "no-cache, must-revalidate"
+    </FilesMatch>
+    <FilesMatch "\.(css|js|jpg|jpeg|png|gif|ico|svg|woff2?)$">
+        Header set Cache-Control "max-age=31536000, public, immutable"
+    </FilesMatch>
+    # De service worker moet altijd vers zijn, anders blijft een oude versie hangen.
+    <FilesMatch "sw\.js$">
+        Header set Cache-Control "no-cache, must-revalidate"
+    </FilesMatch>
+</IfModule>
+
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE text/plain text/html text/xml text/css
+    AddOutputFilterByType DEFLATE application/xml application/xhtml+xml application/rss+xml
+    AddOutputFilterByType DEFLATE application/javascript application/json
+    AddOutputFilterByType DEFLATE image/svg+xml
+</IfModule>

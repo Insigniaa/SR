@@ -1,591 +1,683 @@
-import { DEFAULT_TRACK_IMAGE, BACKGROUND_IMAGES } from './config.js';
-import { formatTime, formatTimestamp, formatShowTime, isSuperRadioTrack } from './utils.js';
+/**
+ * Alles wat de DOM aanraakt.
+ *
+ * Regel: data van buiten (laut.fm, iTunes, RSS) komt uitsluitend via
+ * textContent of via safeUrl() in de pagina. Er wordt nergens een string met
+ * externe inhoud aan innerHTML toegekend, en er staan geen inline handlers in
+ * de opmaak.
+ */
 
-// Elements
-// Elements
-const playPauseBtns = document.querySelectorAll('.play-pause-btn, .listen-live-btn, .hero-play-btn');
-const volumeSlider = document.querySelector('.volume-slider');
-const volumeIcon = document.querySelector('.volume-container i');
-const trackTitleEls = document.querySelectorAll('.track-title');
-const trackArtistEls = document.querySelectorAll('.track-artist');
-const trackImgEls = document.querySelectorAll('.track-img');
-const liveBadge = document.querySelector('.live-indicator');
-const scheduleContainer = document.querySelector('.schedule-container');
-const newsContainer = document.querySelector('.news-grid');
-const recentTracksContainer = document.querySelector('.tracks-grid');
-const upcomingContainer = document.querySelector('.upcoming-tracks-container');
+import { DEFAULT_COVER, NEWS_INITIAL, STATION_PAGE } from './config.js';
+import {
+    el, icon, replaceChildren, safeUrl,
+    formatClock, formatRelative, formatDuration, formatShowTime, dayLabel,
+    clamp, store, prefersReducedMotion
+} from './utils.js';
 
-export function initializeSmoothScrolling() {
-    document.addEventListener('DOMContentLoaded', function () {
-        const navLinks = document.querySelectorAll('a[href^="#"]:not([href="#"])');
+const THEME_KEY = 'sr.theme';
 
-        navLinks.forEach(link => {
-            link.addEventListener('click', function (e) {
-                e.preventDefault();
-                const targetId = this.getAttribute('href');
-                const targetElement = document.querySelector(targetId);
+/**
+ * Aansluitpunten voor de effectenlaag. Blijven ze leeg, dan rendert de UI
+ * gewoon rechtstreeks — de site werkt dus ook zonder js/fx.
+ */
+export const uiHooks = {
+    /** (title, artist) => void — neemt het zetten van de tracktitel over */
+    text: null,
+    /** (scope) => void — na het renderen van nieuwe blokken */
+    rendered: null
+};
 
-                if (targetElement) {
-                    document.querySelectorAll('.main-nav a, .mobile-menu-content a').forEach(navLink => {
-                        navLink.classList.remove('active');
-                    });
-                    document.querySelectorAll(`a[href="${targetId}"]`).forEach(navLink => {
-                        navLink.classList.add('active');
-                    });
+/** Eén keer opzoeken, hergebruiken. */
+const dom = {};
+let player = null;
+let progressTimer = null;
 
-                    const mobileMenuContent = document.querySelector('.mobile-menu-content');
-                    if (mobileMenuContent && mobileMenuContent.classList.contains('open')) {
-                        mobileMenuContent.classList.remove('open');
-                    }
+export function initUI(radioPlayer) {
+    player = radioPlayer;
+    cacheDom();
 
-                    window.scrollTo({
-                        top: targetElement.offsetTop - 80,
-                        behavior: 'smooth'
-                    });
-                }
+    initTheme();
+    initNavigation();
+    initTransport();
+    initKeyboard();
+    initShare();
+    initDock();
+
+    dom.year.textContent = String(new Date().getFullYear());
+    syncPlayState();
+    syncVolume();
+}
+
+function cacheDom() {
+    const id = (name) => document.getElementById(name);
+
+    Object.assign(dom, {
+        topbar: id('topbar'),
+        navToggle: id('nav-toggle'),
+        drawer: id('mobile-nav'),
+        navLinks: [...document.querySelectorAll('.mainnav__link')],
+        themeToggle: id('theme-toggle'),
+
+        onair: document.querySelector('.onair'),
+        showLabel: id('studio-show'),
+        npTitle: id('np-title'),
+        npArtist: id('np-artist'),
+        npArt: id('np-art'),
+
+        progress: id('track-progress'),
+        progressFill: id('track-progress-fill'),
+        elapsed: id('track-elapsed'),
+        remaining: id('track-remaining'),
+
+        playToggles: [...document.querySelectorAll('[data-play-toggle]')],
+        volumeIcon: id('volume-icon'),
+        muteToggle: id('mute-toggle'),
+        volumeSliders: [...document.querySelectorAll('.volume__slider')],
+        shareBtn: id('share-btn'),
+
+        recent: id('recent-list'),
+        upcoming: id('upcoming-list'),
+        schedule: id('schedule'),
+        news: id('news'),
+        newsMore: id('news-more'),
+
+        dock: id('dock'),
+        dockArt: id('dock-art'),
+        dockTitle: id('dock-title'),
+        dockArtist: id('dock-artist'),
+        dockProgress: id('dock-progress')?.firstElementChild,
+
+        toasts: id('toasts'),
+        year: id('year')
+    });
+}
+
+/* ==================================================================== thema */
+
+function initTheme() {
+    const saved = store.get(THEME_KEY, null);
+    if (saved === 'light' || saved === 'dark') {
+        document.documentElement.dataset.theme = saved;
+    }
+
+    updateThemeLabel();
+
+    dom.themeToggle?.addEventListener('click', () => {
+        const isLight = resolvedTheme() === 'light';
+        document.documentElement.dataset.theme = isLight ? 'dark' : 'light';
+        store.set(THEME_KEY, isLight ? 'dark' : 'light');
+        updateThemeLabel();
+    });
+}
+
+function resolvedTheme() {
+    const explicit = document.documentElement.dataset.theme;
+    if (explicit) return explicit;
+    return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+}
+
+function updateThemeLabel() {
+    const theme = resolvedTheme();
+    dom.themeToggle?.setAttribute('aria-label',
+        `Wissel naar ${theme === 'light' ? 'donker' : 'licht'} thema`);
+
+    document.dispatchEvent(new CustomEvent('sr:theme', { detail: { theme } }));
+}
+
+/* =============================================================== navigatie */
+
+function initNavigation() {
+    // Sticky-stijl op de balk
+    const onScroll = () => dom.topbar?.classList.toggle('is-stuck', window.scrollY > 12);
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+
+    // Mobiel menu — precies één keer gebonden
+    dom.navToggle?.addEventListener('click', () => setDrawer(dom.drawer.hidden));
+
+    document.addEventListener('click', (event) => {
+        if (dom.drawer?.hidden) return;
+        if (dom.drawer.contains(event.target) || dom.navToggle.contains(event.target)) return;
+        setDrawer(false);
+    });
+
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && !dom.drawer?.hidden) {
+            setDrawer(false);
+            dom.navToggle?.focus();
+        }
+    });
+
+    // Zacht scrollen. Werkt nu: eerder zat deze binding in een tweede
+    // DOMContentLoaded-listener die nooit meer afvuurde.
+    document.querySelectorAll('a[href^="#"]:not([href="#"])').forEach((link) => {
+        link.addEventListener('click', (event) => {
+            const target = document.querySelector(link.getAttribute('href'));
+            if (!target) return;
+
+            event.preventDefault();
+            setDrawer(false);
+            target.scrollIntoView({
+                behavior: prefersReducedMotion() ? 'auto' : 'smooth',
+                block: 'start'
+            });
+            history.replaceState(null, '', link.getAttribute('href'));
+        });
+    });
+
+    initScrollSpy();
+}
+
+function setDrawer(open) {
+    if (!dom.drawer || !dom.navToggle) return;
+    dom.drawer.hidden = !open;
+    dom.navToggle.setAttribute('aria-expanded', String(open));
+    dom.navToggle.setAttribute('aria-label', open ? 'Menu sluiten' : 'Menu openen');
+}
+
+function initScrollSpy() {
+    const sections = ['speelt', 'programma', 'nieuws']
+        .map((id) => document.getElementById(id))
+        .filter(Boolean);
+
+    if (!sections.length || !('IntersectionObserver' in window)) return;
+
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach((entry) => {
+            if (!entry.isIntersecting) return;
+            dom.navLinks.forEach((link) => {
+                link.classList.toggle('is-active', link.getAttribute('href') === `#${entry.target.id}`);
             });
         });
+    }, { rootMargin: '-45% 0px -50% 0px' });
+
+    sections.forEach((section) => observer.observe(section));
+}
+
+/* ================================================================ bediening */
+
+function initTransport() {
+    // Alle knoppen met data-play-toggle in één keer, dus geen dubbele binding
+    // meer op knoppen die twee klassen delen.
+    dom.playToggles.forEach((btn) => btn.addEventListener('click', () => player.toggle()));
+
+    dom.muteToggle?.addEventListener('click', () => player.toggleMute());
+
+    dom.volumeSliders.forEach((slider) => {
+        slider.addEventListener('input', (event) => {
+            // Waarde is 0-100 en gaat ongewijzigd door. De oude sticky-speler
+            // deelde hier nog een keer door 100.
+            player.setVolume(event.target.value);
+        });
+    });
+
+    player.addEventListener('statechange', syncPlayState);
+    player.addEventListener('intentchange', syncPlayState);
+    player.addEventListener('volumechange', syncVolume);
+
+    player.addEventListener('blocked', () =>
+        toast('Je browser blokkeerde het automatisch starten. Druk nog een keer op play.'));
+
+    player.addEventListener('offline', () => {
+        setOnAir('error');
+        toast('Verbinding weg. We hervatten zodra je weer online bent.', 'i-wifi-off');
+    });
+
+    player.addEventListener('reconnecting', (event) => {
+        setOnAir('error');
+        if (event.detail?.attempt === 1) toast('Verbinding wordt hersteld…', 'i-wifi-off');
+    });
+
+    player.addEventListener('failed', () => {
+        setOnAir('error');
+        toast('De stream is niet bereikbaar. Probeer het later opnieuw.', 'i-wifi-off');
     });
 }
 
-export function initializeUI(player) {
-    initializeSmoothScrolling();
-    // Play/Pause buttons
-    playPauseBtns.forEach(btn => {
-        btn.addEventListener('click', () => player.togglePlay());
+function syncPlayState() {
+    const playing = player.isPlaying;
+    const label = player.intent ? 'Pauzeren' : 'Afspelen';
+
+    dom.playToggles.forEach((btn) => {
+        btn.setAttribute('aria-label', label);
+        btn.classList.toggle('is-playing', playing);
+
+        const use = btn.querySelector('use');
+        if (use) use.setAttribute('href', playing ? '#i-pause' : '#i-play');
     });
 
-    window.addEventListener('requestTogglePlay', () => player.togglePlay());
+    const liveLabel = document.querySelector('.live-btn__label');
+    if (liveLabel) liveLabel.textContent = playing ? 'Pauze' : 'Live';
 
-    // Volume control
-    if (volumeSlider) {
-        volumeSlider.value = player.volume;
-        volumeSlider.addEventListener('input', (e) => {
-            player.setVolume(e.target.value);
-            updateVolumeUI(e.target.value);
-        });
-        updateVolumeUI(player.volume);
-    }
+    setOnAir(playing ? 'live' : 'idle');
+    document.dispatchEvent(new CustomEvent('sr:playing', { detail: { playing } }));
+}
 
-    // Listen for player state changes
-    window.addEventListener('playerStateChanged', (e) => {
-        updatePlayButtons(e.detail.isPlaying);
+function syncVolume() {
+    const value = player.effectiveVolume;
+
+    dom.volumeSliders.forEach((slider) => {
+        if (slider.value !== String(value)) slider.value = value;
+        slider.style.setProperty('--vol', `${value}%`);
+        slider.setAttribute('aria-valuetext', `${value} procent`);
     });
 
-    // Keyboard shortcuts
-    document.addEventListener('keydown', (e) => handleKeyboardShortcuts(e, player));
+    const iconId = value === 0 ? 'i-vol-mute' : value < 45 ? 'i-vol-low' : 'i-vol-high';
+    dom.volumeIcon?.querySelector('use')?.setAttribute('href', `#${iconId}`);
+    dom.muteToggle?.setAttribute('aria-label', player.muted ? 'Geluid aan' : 'Dempen');
 
-    initializeMobileMenu();
-    initializeInteractions();
-    initializeMobileMenu();
-    initStickyPlayer(player);
-}
-
-function initializeMobileMenu() {
-    const mobileMenuBtn = document.querySelector('.mobile-menu-btn');
-    const mobileMenuContent = document.querySelector('.mobile-menu-content');
-
-    if (mobileMenuBtn && mobileMenuContent) {
-        mobileMenuBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            mobileMenuContent.classList.toggle('open');
-            mobileMenuBtn.innerHTML = mobileMenuContent.classList.contains('open')
-                ? '<i class="fas fa-times"></i>'
-                : '<i class="fas fa-bars"></i>';
-        });
-
-        // Close when clicking outside
-        document.addEventListener('click', (e) => {
-            if (mobileMenuContent.classList.contains('open') &&
-                !mobileMenuContent.contains(e.target) &&
-                !mobileMenuBtn.contains(e.target)) {
-                mobileMenuContent.classList.remove('open');
-                mobileMenuBtn.innerHTML = '<i class="fas fa-bars"></i>';
-            }
-        });
-    }
-}
-
-function initializeInteractions() {
-    // Info Button
-    const infoBtn = document.querySelector('.info-btn');
-    if (infoBtn) {
-        infoBtn.addEventListener('click', () => {
-            // Simple alert for now, or implement modal if needed
-            const currentTitle = document.querySelector('.track-title')?.textContent;
-            const currentArtist = document.querySelector('.track-artist')?.textContent;
-            showNotification(`Now Playing: ${currentTitle} by ${currentArtist}`);
-        });
-    }
-
-    // Share Button
-    const shareBtn = document.querySelector('.share-btn');
-    if (shareBtn) {
-        shareBtn.addEventListener('click', async () => {
-            const currentTitle = document.querySelector('.track-title')?.textContent;
-            const currentArtist = document.querySelector('.track-artist')?.textContent;
-            const text = `Luister nu naar ${currentTitle} van ${currentArtist} op Super Radio!`; // Dutch
-
-            if (navigator.share) {
-                try {
-                    await navigator.share({
-                        title: 'Super Radio',
-                        text: text,
-                        url: window.location.href
-                    });
-                } catch (err) {
-                    console.log('Share failed:', err);
-                }
-            } else {
-                // Fallback to clipboard
-                try {
-                    await navigator.clipboard.writeText(`${text} ${window.location.href}`);
-                    showNotification('Link gekopieerd naar klembord!');
-                } catch (err) {
-                    showNotification('Kon link niet kopiëren');
-                }
-            }
-        });
-    }
-
-    // Delegation for track items (using the grid container)
-    const tracksGrid = document.querySelector('.tracks-grid');
-    if (tracksGrid) {
-        tracksGrid.addEventListener('click', (e) => {
-            // Check if click is on play icon
-            const playBtn = e.target.closest('.play-icon');
-            if (playBtn) {
-                // Logic to play specific track? 
-                // Current architecture dictates we listen to live stream.
-                // So clicking play on recent track might just resume live stream
-                // or ideally play that track (requires spotify/youtube integration not fully present).
-                // Original `script.js` just acted as play toggle for the stream usually.
-                // Let's make it toggle stream play.
-                const playerStateEvent = new CustomEvent('requestTogglePlay');
-                window.dispatchEvent(playerStateEvent);
-            }
-        });
-    }
-}
-
-function updatePlayButtons(isPlaying) {
-    const playPauseBtns = document.querySelectorAll('.play-pause-btn');
-    const listenLiveBtn = document.querySelector('.listen-live-btn');
-    const heroPlayBtn = document.querySelector('.hero-play-btn');
-
-    playPauseBtns.forEach(btn => {
-        btn.innerHTML = isPlaying ? '<i class="fas fa-pause"></i>' : '<i class="fas fa-play"></i>';
-        btn.classList.toggle('playing', isPlaying);
+    document.querySelectorAll('.dock__volume > svg use').forEach((use) => {
+        use.setAttribute('href', `#${iconId}`);
     });
-
-    if (listenLiveBtn) {
-        const iconContainer = listenLiveBtn.querySelector('.icon-container');
-        const textSpan = listenLiveBtn.querySelector('.btn-text');
-
-        if (iconContainer) iconContainer.innerHTML = isPlaying ? '<i class="fas fa-pause"></i>' : '<i class="fas fa-play"></i>';
-        if (textSpan) textSpan.textContent = isPlaying ? 'PAUSE' : 'LIVE';
-
-        listenLiveBtn.classList.toggle('playing', isPlaying);
-    }
 }
 
-function updateVolumeUI(volume) {
-    if (!volumeIcon) return;
-
-    // Use classList for safer class manipulation or simpler logic
-    volumeIcon.className = 'fas ' +
-        (volume == 0 ? 'fa-volume-mute' :
-            volume < 30 ? 'fa-volume-off' :
-                volume < 70 ? 'fa-volume-down' :
-                    'fa-volume-up');
+function setOnAir(state) {
+    dom.onair?.setAttribute('data-state', state);
+    const text = dom.onair?.querySelector('.onair__text');
+    if (!text) return;
+    text.textContent = state === 'live' ? 'On air' : state === 'error' ? 'Verbinden' : 'Stand-by';
 }
 
-function handleKeyboardShortcuts(e, player) {
-    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+/* ============================================================== sneltoetsen */
 
-    switch (e.key.toLowerCase()) {
-        case ' ':
-            e.preventDefault();
-            player.togglePlay();
-            break;
-        case 'arrowup':
-            e.preventDefault();
-            const newVolUp = Math.min(100, parseInt(player.volume) + 5);
-            player.setVolume(newVolUp);
-            if (volumeSlider) {
-                volumeSlider.value = newVolUp;
-                updateVolumeUI(newVolUp);
-            }
-            break;
-        case 'arrowdown':
-            e.preventDefault();
-            const newVolDown = Math.max(0, parseInt(player.volume) - 5);
-            player.setVolume(newVolDown);
-            if (volumeSlider) {
-                volumeSlider.value = newVolDown;
-                updateVolumeUI(newVolDown);
-            }
-            break;
-    }
+function initKeyboard() {
+    document.addEventListener('keydown', (event) => {
+        const tag = event.target.tagName;
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || event.target.isContentEditable) return;
+        if (event.metaKey || event.ctrlKey || event.altKey) return;
+
+        switch (event.key) {
+            case ' ':
+            case 'k':
+            case 'K':
+                event.preventDefault();
+                player.toggle();
+                break;
+            case 'ArrowUp':
+                event.preventDefault();
+                player.setVolume(clamp(player.volume + 5, 0, 100));
+                break;
+            case 'ArrowDown':
+                event.preventDefault();
+                player.setVolume(clamp(player.volume - 5, 0, 100));
+                break;
+            case 'm':
+            case 'M':
+                player.toggleMute();
+                break;
+            default:
+                break;
+        }
+    });
 }
 
-// Track Information Updates
-export function updateCurrentTrackUI(track) {
-    const title = track.title || 'Unknown Track';
-    const artist = track.artist || 'Unknown Artist';
-    const image = track.image || DEFAULT_TRACK_IMAGE;
+/* =================================================================== delen */
 
-    // Update Text
-    trackTitleEls.forEach(el => el.textContent = title);
-    trackArtistEls.forEach(el => el.textContent = artist);
-    document.title = `${title} - ${artist} | Super Radio`;
+function initShare() {
+    dom.shareBtn?.addEventListener('click', async () => {
+        const title = dom.npTitle?.textContent?.trim() || '';
+        const artist = dom.npArtist?.textContent?.trim() || '';
+        const text = title && artist
+            ? `Ik luister naar ${title} van ${artist} op Super Radio.`
+            : 'Luister mee met Super Radio.';
 
-    // Update Media Session API
-    if ('mediaSession' in navigator) {
-        navigator.mediaSession.metadata = new MediaMetadata({
-            title: title,
-            artist: artist,
-            album: 'Super Radio',
-            artwork: [
-                { src: image, sizes: '512x512', type: 'image/png' },
-                { src: 'images/logo.png', sizes: '512x512', type: 'image/png' }
-            ]
-        });
-    }
+        const payload = { title: 'Super Radio', text, url: window.location.origin || STATION_PAGE };
 
-    // Update Images
-    trackImgEls.forEach(img => {
-        // Handle Super Radio logic for generating cover/placeholder
-        // Here we just set the src, assuming logic handles the URL generation or passing
-        // Ideally the passing logic (API) handles providing the correct URL.
-        // But the original code had complex logic for "Text Cover" vs "Image".
-        // We simplified API to return an image URL. But if it's "Super Radio" we might want the text cover back.
-        // For now, let's just set the image. The API.js returns `track.image`.
-
-        // If we want to support the text cover for Super Radio tracks properly:
-        if (isSuperRadioTrack(artist) && title) {
-            // We could implement the text-cover logic here.
-            // But for simplicity in this refactor, we rely on the generic image until requested otherwise.
-            // Or we can inject the text cover DOM if needed.
-            // Let's stick to simple image for now to reduce complexity, unless user complained.
-            // Actually, the original code had nice text covers.
-
-            const container = img.parentElement;
-            if (container) {
-                // Ensure container is clean
-                const textCover = container.querySelector('.text-cover');
-
-                if (textCover) {
-                    // Logic to show text cover
-                    // For now we skip this complexity and just show the image provided by API (which might be placeholder).
-                }
+        if (navigator.share) {
+            try {
+                await navigator.share(payload);
+                return;
+            } catch (error) {
+                if (error?.name === 'AbortError') return;   // gebruiker annuleerde
             }
         }
 
-        img.src = image;
-
-        // Error handling
-        img.onerror = () => { img.src = DEFAULT_TRACK_IMAGE; };
+        try {
+            await navigator.clipboard.writeText(`${text} ${payload.url}`);
+            toast('Link gekopieerd naar het klembord.');
+        } catch {
+            toast('Kopiëren lukte niet. Kopieer de link uit de adresbalk.');
+        }
     });
-
-    // Update Progress
-    // We need to implement the progress bar logic here or imported.
-    if (track.started_at && track.ends_at) {
-        updateProgressBar(track.started_at, track.ends_at);
-    }
-
-    updateStickyPlayerUI(track);
 }
 
-let progressInterval;
-function updateProgressBar(startedAt, endsAt) {
-    const progressBar = document.querySelector('.progress');
-    const currentTimeSpan = document.querySelector('.current-time');
-    const durationSpan = document.querySelector('.duration');
+/* ============================================================== nu speelt */
 
-    if (!progressBar || !currentTimeSpan || !durationSpan) return;
+export function renderCurrentTrack(track) {
+    if (!track) return;
 
-    if (progressInterval) clearInterval(progressInterval);
+    const title = track.title || 'Onbekend nummer';
+    const artist = track.artist || 'Onbekende artiest';
+    const image = track.image || DEFAULT_COVER;
 
-    const startTime = new Date(startedAt);
-    const endTime = new Date(endsAt);
-    const totalDuration = (endTime - startTime) / 1000;
+    // Zachte afbreekpunten na komma's en slashes, zodat een opsomming als
+    // "Al Jarreau,Steely Dan,Lou Rawls" netjes afbreekt in plaats van
+    // middenin een naam.
+    dom.npTitle.closest('.np')?.setAttribute('data-len', lengthBucket(title));
 
-    const update = () => {
-        const now = new Date();
-        const elapsed = Math.max(0, (now - startTime) / 1000);
-        const remaining = Math.max(0, totalDuration - elapsed);
+    if (uiHooks.text) {
+        uiHooks.text(softBreak(title), softBreak(artist));
+    } else {
+        dom.npTitle.textContent = softBreak(title);
+        dom.npArtist.textContent = softBreak(artist);
+    }
+    dom.dockTitle.textContent = title;
+    dom.dockArtist.textContent = artist;
 
-        const progress = Math.min(100, (elapsed / totalDuration) * 100);
-        progressBar.style.width = `${progress}%`;
+    document.title = `${title} — ${artist} | Super Radio`;
 
-        currentTimeSpan.textContent = formatTime(remaining, true);
-        durationSpan.textContent = formatTime(totalDuration);
+    setCover(dom.npArt, image, `Hoes van ${title} van ${artist}`);
+    setCover(dom.dockArt, image, '');
 
-        if (elapsed >= totalDuration) {
-            clearInterval(progressInterval);
-            // Trigger refresh? handled by API polling usually
-        }
+    player?.setMetadata({ title, artist, image });
+    renderProgress(track);
+}
+
+/** Zero-width space na komma's en slashes: geeft de browser een afbreekpunt. */
+function softBreak(text) {
+    return String(text).replace(/([,/])(?=\S)/g, '$1\u200B');
+}
+
+/** Bepaalt hoe groot de titel mag worden. */
+function lengthBucket(text) {
+    const length = String(text).length;
+    if (length <= 20) return 's';
+    if (length <= 38) return 'l';
+    return 'xl';
+}
+
+/** Wisselt een hoes met een korte fade en valt terug op de standaardhoes. */
+function setCover(img, src, alt) {
+    if (!img) return;
+    if (alt !== undefined) img.alt = alt;
+    if (img.dataset.src === src) return;
+
+    img.dataset.src = src;
+    img.classList.add('is-swapping');
+
+    const loader = new Image();
+    loader.onload = () => {
+        img.src = src;
+        img.classList.remove('is-swapping');
     };
-
-    update();
-    progressInterval = setInterval(update, 1000);
+    loader.onerror = () => {
+        // Belangrijk: niet opnieuw dezelfde bron proberen. De oude code zette
+        // hier de standaardhoes terug, die zelf ook ontbrak, wat een oneindige
+        // foutlus opleverde.
+        if (src !== DEFAULT_COVER) {
+            img.src = DEFAULT_COVER;
+            img.dataset.src = DEFAULT_COVER;
+        }
+        img.classList.remove('is-swapping');
+    };
+    loader.src = src;
 }
 
-export function displayRecentTracks(tracks) {
-    const container = document.querySelector('.tracks-grid');
-    if (!container) return;
+function renderProgress(track) {
+    clearInterval(progressTimer);
 
-    container.innerHTML = tracks.map(track => {
-        const title = track.title || track.name;
-        const artist = track.artist.name || track.artist;
-        const image = track.image || track.cover || DEFAULT_TRACK_IMAGE; // Simplified
-        // Note: API integration needs to ensure 'image' property is populated or we handle it here.
-        // In api.js we returned raw JSON from Laut.fm. We need to handle images there or here. 
-        // Let's handle it here: basic fallback.
-
-        return `
-        <div class="track-item">
-            <div class="track-artwork">
-                <img src="${image}" alt="${title}" loading="lazy" onerror="this.src='${DEFAULT_TRACK_IMAGE}'">
-            </div>
-            <div class="track-info">
-                <div class="track-title">${title}</div>
-                <div class="track-artist">${artist}</div>
-                <div class="track-time">${formatTimestamp(track.started_at)}</div>
-            </div>
-        </div>
-        `;
-    }).join('');
-}
-
-export function displayUpcomingTracks(tracks) {
-    const container = document.querySelector('.upcoming-tracks-container');
-    // Note: container needs to be created in HTML if not exists, or cleared.
-    // Original code created it inside '.upcoming-tracks .container'
-
-    const parent = document.querySelector('.upcoming-tracks .container');
-    if (!parent) return;
-
-    if (tracks.length === 0) {
-        parent.innerHTML = '<div class="no-upcoming-tracks">No upcoming tracks information available</div>';
+    const { startedAt, endsAt } = track;
+    if (!startedAt || !endsAt || endsAt <= startedAt) {
+        dom.progress.hidden = true;
+        if (dom.dockProgress) dom.dockProgress.style.width = '0%';
         return;
     }
 
-    let html = '<div class="section-header"><h2>Coming Up Next</h2></div><div class="upcoming-tracks-container">';
+    const total = (endsAt - startedAt) / 1000;
+    dom.progress.hidden = false;
 
-    html += tracks.map((track, index) => {
-        const artist = track.artist.name;
-        const image = track.artist.image || DEFAULT_TRACK_IMAGE;
+    const update = () => {
+        const elapsed = clamp((Date.now() - startedAt.getTime()) / 1000, 0, total);
+        const percent = (elapsed / total) * 100;
 
-        return `
-            <div class="upcoming-track-item">
-                <div class="track-artwork">
-                    <img src="${image}" alt="${artist}" onerror="this.src='${DEFAULT_TRACK_IMAGE}'">
-                </div>
-                <div class="track-item-info">
-                    <div class="track-item-artist">${artist}</div>
-                    <div class="track-item-time">Coming up ${index === 0 ? 'next' : `#${index + 1}`}</div>
-                </div>
-            </div>
-        `;
-    }).join('');
+        dom.progressFill.style.width = `${percent}%`;
+        if (dom.dockProgress) dom.dockProgress.style.width = `${percent}%`;
+        dom.elapsed.textContent = formatDuration(elapsed);
+        dom.remaining.textContent = `-${formatDuration(total - elapsed)}`;
 
-    html += '</div>';
-    parent.innerHTML = html;
+        if (elapsed >= total) clearInterval(progressTimer);
+    };
+
+    update();
+    progressTimer = setInterval(update, 1000);
 }
 
-export function displayScheduleInfo(currentShow, upcomingShows) {
-    const container = document.querySelector('.schedule-container');
-    if (!container) return;
-
-    container.innerHTML = ''; // Clear
-
-    if (currentShow) {
-        // Add current show HTML (simplified from original)
-        const showElement = document.createElement('div');
-        showElement.className = 'current-show';
-        showElement.innerHTML = `
-            <div class="show-badge"><div class="pulse"></div>On Air</div>
-            <div class="show-info">
-                <h3>${currentShow.name}</h3>
-                <div class="show-time"><i class="far fa-clock"></i> ${formatShowTime(currentShow.hour, currentShow.end_time)}</div>
-            </div>
-         `;
-        container.appendChild(showElement);
-    }
-
-    if (upcomingShows.length > 0) {
-        const upcomingDiv = document.createElement('div');
-        upcomingDiv.innerHTML = upcomingShows.map(show => `
-            <div class="show-item" style="color: ${show.color || '#00F0FF'}">
-                <div class="show-header">
-                    <h4>${show.name}</h4>
-                    <span class="show-time">${formatShowTime(show.hour, show.end_time)}</span>
-                </div>
-                <!-- Future improvement: Add description if available from API -->
-            </div>
-        `).join('');
-        container.appendChild(upcomingDiv);
-    }
+export function renderShowLabel(show) {
+    if (!dom.showLabel) return;
+    dom.showLabel.textContent = show?.name
+        ? `${show.name} · ${formatShowTime(show.hour, show.endHour)}`
+        : 'Non-stop muziek';
 }
 
-export function updateListenerCount(count) {
-    const liveBadge = document.querySelector('.live-indicator');
-    if (!liveBadge) return;
+/* ============================================================ speellijsten */
 
-    let el = liveBadge.querySelector('.count');
-    if (el) {
-        el.textContent = count;
-    }
-}
+export function renderRecentTracks(tracks) {
+    if (!dom.recent) return;
+    dom.recent.setAttribute('aria-busy', 'false');
 
-export function displayNews(newsItems) {
-    const container = document.querySelector('.news-grid');
-    if (!container) return; // Should likely check parent for button insertion
-
-    // Clear previous
-    container.innerHTML = '';
-
-    // Remove existing button if any (in case of re-render)
-    const existingBtn = document.querySelector('.load-more-news-btn');
-    if (existingBtn) existingBtn.remove();
-
-    const INITIAL_LIMIT = 6;
-    const hasMore = newsItems.length > INITIAL_LIMIT;
-
-    const renderItem = (news) => `
-        <article class="news-item" onclick="window.open('${news.url}', '_blank')">
-            <img class="news-image" src="${news.image}" alt="${news.title}" onerror="this.src='${DEFAULT_TRACK_IMAGE}'">
-            <div class="news-content">
-                <div class="news-date">${news.date.toLocaleDateString('nl-NL')}</div>
-                <h3 class="news-title">${news.title}</h3>
-                <p class="news-excerpt">${news.content.substring(0, 100)}...</p>
-                <div class="news-source">Lees artikel</div>
-            </div>
-        </article>
-    `;
-
-    // Render initial batch
-    const initialItems = newsItems.slice(0, INITIAL_LIMIT);
-    container.innerHTML = initialItems.map(renderItem).join('');
-
-    if (hasMore) {
-        const remainingItems = newsItems.slice(INITIAL_LIMIT);
-
-        const btnContainer = document.createElement('div');
-        btnContainer.className = 'load-more-container';
-        btnContainer.innerHTML = '<button class="load-more-news-btn">Load More News</button>';
-
-        // Append button AFTER grid. Since grid is CSS grid, we might need to place button outside grid container 
-        // OR make it span full width inside. 
-        // Based on previous HTML structure, .news-grid is inside .container in .news-section.
-        // It's safer to append button to the PARENT of .news-grid.
-        const parent = container.parentElement;
-        parent.appendChild(btnContainer);
-
-        const btn = btnContainer.querySelector('.load-more-news-btn');
-        btn.onclick = () => {
-            // Append remaining items
-            const tempDiv = document.createElement('div');
-            tempDiv.innerHTML = remainingItems.map(renderItem).join('');
-
-            // Move children to grid
-            while (tempDiv.firstChild) {
-                // Add fade-in animation class if desired
-                const child = tempDiv.firstChild;
-                if (child.nodeType === 1) child.style.animation = 'fadeIn 0.5s ease';
-                container.appendChild(child);
-            }
-
-            btnContainer.remove(); // Remove button
-        };
-    }
-}
-
-export function showNotification(message) {
-    // Check if notification container exists, create if not
-    let notificationContainer = document.querySelector('.notification-container');
-    if (!notificationContainer) {
-        notificationContainer = document.createElement('div');
-        notificationContainer.className = 'notification-container';
-        document.body.appendChild(notificationContainer);
-        // Add styles dynamically or assume in CSS
-        const style = document.createElement('style');
-        style.textContent = `
-            .notification-container { position: fixed; top: 20px; right: 20px; z-index: 9999; }
-            .notification { background: rgba(24, 24, 24, 0.9); color: white; padding: 12px 20px; margin-bottom: 10px; border-radius: 8px; border-left: 3px solid #ff1744; animation: slideIn 0.3s forwards; }
-            @keyframes slideIn { from { transform: translateX(100%); } to { transform: translateX(0); } }
-        `;
-        document.head.appendChild(style);
+    if (!tracks?.length) {
+        replaceChildren(dom.recent, emptyState('Nog geen nummers gedraaid.'));
+        return;
     }
 
-    const notification = document.createElement('div');
-    notification.className = 'notification';
-    notification.textContent = message;
-    notificationContainer.appendChild(notification);
+    replaceChildren(dom.recent, tracks.map((track) => {
+        const search = `https://www.google.com/search?q=${encodeURIComponent(`${track.artist} ${track.title}`)}`;
 
-    setTimeout(() => notification.remove(), 3000);
+        return el('li', { class: 'track' }, [
+            el('span', { class: 'track__time mono', text: formatClock(track.startedAt) }),
+            el('img', {
+                class: 'track__art',
+                src: track.image || DEFAULT_COVER,
+                alt: '',
+                loading: 'lazy',
+                decoding: 'async',
+                width: 52,
+                height: 52,
+                onerror: (event) => { event.target.src = DEFAULT_COVER; }
+            }),
+            el('div', { class: 'track__body' }, [
+                el('p', { class: 'track__title', text: track.title }),
+                el('p', { class: 'track__artist', text: track.artist })
+            ]),
+            el('a', {
+                class: 'track__action',
+                href: search,
+                target: '_blank',
+                rel: 'noopener noreferrer',
+                'aria-label': `Zoek ${track.title} van ${track.artist}`
+            }, [icon('i-search')])
+        ]);
+    }));
 }
 
-export function hideLoadingScreen() {
-    const screen = document.getElementById('loading-screen');
-    if (screen) {
-        screen.classList.add('fade-out');
-        setTimeout(() => screen.remove(), 800);
-        document.body.classList.remove('loading');
-    }
-}
+export function renderUpcoming(artists) {
+    if (!dom.upcoming) return;
+    dom.upcoming.setAttribute('aria-busy', 'false');
 
-
-
-// Sticky Player Logic
-export function initStickyPlayer(player) {
-    const stickyPlayer = document.getElementById('sticky-player');
-    const heroSection = document.querySelector('.hero-section');
-    if (!stickyPlayer || !heroSection) return;
-
-    // Scroll Observer
-    const observer = new IntersectionObserver((entries) => {
-        entries.forEach(entry => {
-            if (!entry.isIntersecting) {
-                stickyPlayer.classList.remove('hidden');
-            } else {
-                stickyPlayer.classList.add('hidden');
-            }
-        });
-    }, { threshold: 0.1 });
-
-    observer.observe(heroSection);
-
-    // Bind Controls
-    const playBtn = stickyPlayer.querySelector('.sticky-play-btn');
-    const volumeSlider = stickyPlayer.querySelector('.volume-slider');
-
-    if (playBtn) {
-        playBtn.addEventListener('click', () => player.togglePlay());
+    if (!artists?.length) {
+        replaceChildren(dom.upcoming, emptyState('De zender heeft nog niets aangekondigd.'));
+        return;
     }
 
-    if (volumeSlider) {
-        volumeSlider.addEventListener('input', (e) => {
-            player.setVolume(e.target.value / 100);
-            // Sync main slider
-            const mainSlider = document.querySelector('.hero-controls .volume-slider');
-            if (mainSlider) mainSlider.value = e.target.value;
-        });
+    replaceChildren(dom.upcoming, artists.map((artist, index) =>
+        el('li', { class: 'upnext__item' }, [
+            el('span', { class: 'upnext__idx mono', text: String(index + 1) }),
+            el('div', {}, [
+                el('p', { class: 'upnext__name', text: artist.name }),
+                el('p', { class: 'upnext__meta', text: index === 0 ? 'Hierna' : `Over ${index + 1} nummers` })
+            ])
+        ])
+    ));
+}
+
+/* ================================================================ programma */
+
+export function renderSchedule({ current, upcoming }) {
+    if (!dom.schedule) return;
+    dom.schedule.setAttribute('aria-busy', 'false');
+
+    const nodes = [];
+
+    if (current) {
+        nodes.push(el('article', { class: 'now-show', 'data-tilt': '4' }, [
+            current.image && el('img', {
+                class: 'now-show__art',
+                src: current.image,
+                alt: '',
+                loading: 'lazy',
+                decoding: 'async',
+                onerror: (event) => { event.target.remove(); }
+            }),
+            el('div', { class: 'now-show__body' }, [
+                el('span', { class: 'now-show__badge' }, [el('span'), 'Nu op de zender']),
+                el('h3', { class: 'now-show__name', text: current.name }),
+                el('p', { class: 'now-show__time' }, [
+                    icon('i-clock'),
+                    formatShowTime(current.hour, current.endHour)
+                ]),
+                current.description && el('p', { class: 'band__sub', text: current.description }),
+                el('div', {
+                    class: 'now-show__bar',
+                    role: 'progressbar',
+                    'aria-label': 'Voortgang van het programma',
+                    'aria-valuenow': Math.round(current.progress || 0),
+                    'aria-valuemin': '0',
+                    'aria-valuemax': '100'
+                }, [el('span', { style: `width:${current.progress || 0}%` })])
+            ])
+        ]));
     }
+
+    if (upcoming?.length) {
+        nodes.push(el('div', { class: 'next-shows' }, upcoming.map((show) =>
+            el('article', { class: 'next-show' }, [
+                el('p', { class: 'next-show__when', text: whenLabel(show) }),
+                el('h4', { class: 'next-show__name', text: show.name }),
+                el('p', { class: 'next-show__time mono', text: formatShowTime(show.hour, show.endHour) })
+            ])
+        )));
+    }
+
+    replaceChildren(dom.schedule, nodes.length ? nodes : emptyState('Geen programmering beschikbaar.'));
+    afterRender(dom.schedule);
 }
 
-export function updateStickyPlayerUI(track) {
-    const stickyPlayer = document.getElementById('sticky-player');
-    if (!stickyPlayer) return;
-
-    const titleEl = stickyPlayer.querySelector('.sticky-title');
-    const artistEl = stickyPlayer.querySelector('.sticky-artist');
-    const imgEl = stickyPlayer.querySelector('.sticky-art');
-
-    if (titleEl) titleEl.textContent = track.title;
-    if (artistEl) artistEl.textContent = track.artist;
-    if (imgEl && track.image) imgEl.src = track.image;
+function whenLabel(show) {
+    const minutes = show.inMinutes ?? 0;
+    if (minutes < 60) return `Over ${Math.max(1, Math.round(minutes))} min`;
+    if (minutes < 1440) return `Over ${Math.round(minutes / 60)} uur`;
+    return dayLabel(show.day);
 }
 
+/* =================================================================== nieuws */
+
+export function renderNews(items) {
+    if (!dom.news) return;
+    dom.news.setAttribute('aria-busy', 'false');
+    replaceChildren(dom.newsMore, []);
+
+    // Geen bron bereikbaar? Dan de hele sectie weg, inclusief de menu-items die
+    // ernaartoe wijzen. Een lege kop met een foutzin ziet er kapotter uit dan
+    // een sectie die er gewoon niet is.
+    setNewsVisible(Boolean(items?.length));
+    if (!items?.length) return;
+
+    const visible = items.slice(0, NEWS_INITIAL);
+    replaceChildren(dom.news, visible.map((item, index) => newsCard(item, index === 0)));
+
+    const rest = items.slice(NEWS_INITIAL);
+    if (!rest.length) return;
+
+    const button = el('button', {
+        class: 'more-btn',
+        type: 'button',
+        text: `Meer nieuws (${rest.length})`
+    });
+
+    button.addEventListener('click', () => {
+        rest.forEach((item) => dom.news.append(newsCard(item, false)));
+        button.remove();
+    }, { once: true });
+
+    replaceChildren(dom.newsMore, button);
+    afterRender(dom.news);
+}
+
+function setNewsVisible(visible) {
+    const section = document.getElementById('nieuws');
+    if (section) section.hidden = !visible;
+
+    document.querySelectorAll('a[href="#nieuws"]').forEach((link) => {
+        link.hidden = !visible;
+    });
+}
+
+function newsCard(item, isLead) {
+    const url = safeUrl(item.url);
+
+    const media = el('div', { class: 'news__media' }, [
+        el('img', {
+            src: item.image || DEFAULT_COVER,
+            alt: '',
+            loading: 'lazy',
+            decoding: 'async',
+            onerror: (event) => { event.target.src = DEFAULT_COVER; }
+        })
+    ]);
+
+    const body = el('div', { class: 'news__body' }, [
+        el('p', { class: 'news__meta' }, [
+            el('b', { text: 'NU.nl' }),
+            '·',
+            formatRelative(item.date)
+        ]),
+        el('h3', { class: 'news__title', text: item.title }),
+        el('p', { class: 'news__excerpt', text: item.excerpt }),
+        url && el('span', { class: 'news__cta' }, ['Lees artikel', icon('i-external')])
+    ]);
+
+    const classes = `news__item${isLead ? ' news__item--lead' : ''}`;
+    const tilt = isLead ? { 'data-tilt': '3' } : {};
+
+    // Een <a> om de hele kaart: toetsenbord- en screenreadervriendelijk, en
+    // zonder de inline onclick met een niet-gecontroleerde URL van vroeger.
+    return url
+        ? el('a', { class: classes, href: url, target: '_blank', rel: 'noopener noreferrer', ...tilt }, [media, body])
+        : el('article', { class: classes, ...tilt }, [media, body]);
+}
+
+/* ==================================================================== dock */
+
+function initDock() {
+    const anchor = document.querySelector('.studio');
+    if (!dom.dock || !anchor || !('IntersectionObserver' in window)) return;
+
+    const observer = new IntersectionObserver(([entry]) => {
+        dom.dock.hidden = entry.isIntersecting;
+    }, { threshold: 0, rootMargin: '-120px 0px 0px 0px' });
+
+    observer.observe(anchor);
+}
+
+/* ================================================================== meldingen */
+
+export function toast(message, iconId = 'i-signal') {
+    if (!dom.toasts) return;
+
+    const node = el('div', { class: 'toast' }, [icon(iconId), el('span', { text: message })]);
+    dom.toasts.append(node);
+
+    setTimeout(() => {
+        node.classList.add('is-leaving');
+        node.addEventListener('animationend', () => node.remove(), { once: true });
+    }, 4200);
+}
+
+/** Laat de effectenlaag weten dat er nieuwe knopen zijn. */
+function afterRender(scope) {
+    uiHooks.rendered?.(scope);
+}
+
+function emptyState(message) {
+    return el('p', { class: 'band__sub', text: message });
+}

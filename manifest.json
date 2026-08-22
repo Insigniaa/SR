@@ -1,55 +1,61 @@
 {
+    "id": "/",
     "name": "Super Radio",
     "short_name": "Super Radio",
-    "description": "Luister live naar Super Radio - De ultieme hitradio met non-stop muziek",
-    "start_url": "/",
-    "display": "standalone",
-    "background_color": "#0A0A0A",
-    "theme_color": "#E6282B",
-    "orientation": "any",
-    "dir": "ltr",
-    "lang": "nl-NL",
-    "categories": ["entertainment", "music"],
+    "description": "Luister live naar Super Radio: non-stop hits, soul, dance classics en de grootste nummers uit de jaren 60 tot nu.",
+    "start_url": "/?source=pwa",
     "scope": "/",
+    "display": "standalone",
+    "display_override": ["standalone", "minimal-ui"],
+    "orientation": "any",
+    "background_color": "#0B0A09",
+    "theme_color": "#0B0A09",
+    "lang": "nl-NL",
+    "dir": "ltr",
+    "categories": ["entertainment", "music", "news"],
     "icons": [
         {
-            "src": "images/logo.png",
-            "sizes": "512x512",
+            "src": "images/icon-192.png",
+            "sizes": "192x192",
             "type": "image/png",
-            "purpose": "any maskable"
-        }
-    ],
-    "splash_pages": null,
-    "screenshots": [
-        {
-            "src": "https://placehold.co/1080x1920/333/FFF?text=Super+Radio+App",
-            "sizes": "1080x1920",
-            "type": "image/png",
-            "form_factor": "narrow",
-            "label": "Super Radio Mobile App"
+            "purpose": "any"
         },
         {
-            "src": "https://placehold.co/1920x1080/333/FFF?text=Super+Radio+Desktop",
-            "sizes": "1920x1080",
+            "src": "images/icon-512.png",
+            "sizes": "512x512",
             "type": "image/png",
+            "purpose": "any"
+        },
+        {
+            "src": "images/icon-maskable-512.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "maskable"
+        }
+    ],
+    "screenshots": [
+        {
+            "src": "images/og-image.jpg",
+            "sizes": "1200x630",
+            "type": "image/jpeg",
             "form_factor": "wide",
-            "label": "Super Radio Desktop App"
+            "label": "Super Radio op desktop"
         }
     ],
     "shortcuts": [
         {
-            "name": "Luister Live",
+            "name": "Direct luisteren",
             "short_name": "Live",
-            "description": "Begin direct met het streamen van Super Radio",
+            "description": "Start de stream van Super Radio",
             "url": "/?action=play",
-            "icons": [{ "src": "images/logo.png", "sizes": "192x192" }]
+            "icons": [{ "src": "images/icon-192.png", "sizes": "192x192", "type": "image/png" }]
         },
         {
-            "name": "Programma's",
-            "short_name": "Programma's",
-            "description": "Bekijk het radio-uitzendschema",
+            "name": "Programma",
+            "short_name": "Programma",
+            "description": "Bekijk wat er vandaag op de zender staat",
             "url": "/?section=schedule",
-            "icons": [{ "src": "images/logo.png", "sizes": "192x192" }]
+            "icons": [{ "src": "images/icon-192.png", "sizes": "192x192", "type": "image/png" }]
         }
     ]
-} 
+}

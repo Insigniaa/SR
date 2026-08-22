@@ -1,6 +1,10 @@
 User-agent: *
 Allow: /
-Disallow: /private/
-Disallow: /admin/
 
-Sitemap: https://superradio.com/sitemap.xml 
+# Geen inhoud, alleen ruis voor crawlers
+Disallow: /images/favicon-
+Disallow: /*?action=
+Disallow: /*?section=
+Disallow: /*?source=
+
+Sitemap: https://superradio.live/sitemap.xml

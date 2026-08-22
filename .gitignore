@@ -19,3 +19,9 @@ Thumbs.db
 # Large archives and backups
 *.rar
 *.bak
+
+# Back-up van de vorige versie (mag weg zodra je tevreden bent)
+.backup-original-*/
+
+# Lokale Claude Code-config
+.claude/

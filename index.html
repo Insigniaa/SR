@@ -3,217 +3,480 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Super Radio | Live Radio & Hits</title>
-    <meta name="description"
-        content="Luister live naar Super Radio - De ultieme hitradio met non-stop muziek en entertainment">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 
-    <!-- Open Graph / Social Media -->
+    <title>Super Radio — Live hitradio, non-stop</title>
+    <meta name="description"
+        content="Luister live naar Super Radio. Non-stop hits, soul, dance classics en de grootste nummers uit de jaren 60 tot nu. Gratis, zonder account, dag en nacht.">
+    <link rel="canonical" href="https://superradio.live/">
+
+    <meta name="theme-color" content="#0B0A09" media="(prefers-color-scheme: dark)">
+    <meta name="theme-color" content="#FBF8F4" media="(prefers-color-scheme: light)">
+    <meta name="color-scheme" content="dark light">
+
+    <!-- Open Graph -->
     <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Super Radio">
+    <meta property="og:locale" content="nl_NL">
     <meta property="og:url" content="https://superradio.live/">
-    <meta property="og:title" content="Super Radio | Live Radio & Hits">
-    <meta property="og:description" content="Luister live naar Super Radio - De ultieme hitradio met non-stop muziek en entertainment">
-    <meta property="og:image" content="https://superradio.live/images/logo.png">
+    <meta property="og:title" content="Super Radio — Live hitradio, non-stop">
+    <meta property="og:description"
+        content="Luister live naar Super Radio. Non-stop hits, soul, dance classics en de grootste nummers uit de jaren 60 tot nu.">
+    <meta property="og:image" content="https://superradio.live/images/og-image.jpg">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="Super Radio — live hitradio">
 
     <!-- Twitter -->
-    <meta property="twitter:card" content="summary_large_image">
-    <meta property="twitter:url" content="https://superradio.live/">
-    <meta property="twitter:title" content="Super Radio | Live Radio & Hits">
-    <meta property="twitter:description" content="Luister live naar Super Radio - De ultieme hitradio met non-stop muziek en entertainment">
-    <meta property="twitter:image" content="https://superradio.live/images/logo.png">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Super Radio — Live hitradio, non-stop">
+    <meta name="twitter:description" content="Luister live naar Super Radio. Non-stop hits, dag en nacht.">
+    <meta name="twitter:image" content="https://superradio.live/images/og-image.jpg">
 
-    <!-- PWA & Mobile Polish -->
-    <meta name="theme-color" content="#1a1a2e">
-    <link rel="apple-touch-icon" href="images/logo.png">
-
+    <!-- Icons & PWA -->
+    <link rel="icon" href="images/favicon.ico" sizes="48x48">
+    <link rel="icon" href="images/favicon-32.png" type="image/png" sizes="32x32">
+    <link rel="apple-touch-icon" href="images/apple-touch-icon.png">
     <link rel="manifest" href="manifest.json">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Super Radio">
 
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&display=swap"
-        rel="stylesheet">
+    <link rel="preload" as="style"
+        href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800;900&family=IBM+Plex+Mono:wght@400;500&display=swap">
+    <link rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800;900&family=IBM+Plex+Mono:wght@400;500&display=swap">
 
-    <!-- Icons -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="preconnect" href="https://api.laut.fm">
+    <link rel="preconnect" href="https://stream.laut.fm">
 
-    <!-- Styles -->
     <link rel="stylesheet" href="styles.css">
+
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "RadioStation",
+        "name": "Super Radio",
+        "url": "https://superradio.live/",
+        "logo": "https://superradio.live/images/icon-512.png",
+        "image": "https://superradio.live/images/og-image.jpg",
+        "description": "Live hitradio met non-stop muziek: hits, soul, motown, dance classics en de jaren 60 tot nu.",
+        "inLanguage": "nl-NL",
+        "broadcastServiceTier": "Free",
+        "potentialAction": {
+            "@type": "ListenAction",
+            "target": "https://stream.laut.fm/super-radio"
+        }
+    }
+    </script>
 </head>
 
-<body>
-    <!-- Loading Screen -->
-    <div id="loading-screen" class="loading-screen">
-        <div class="loading-content">
-            <div class="loading-logo">
-                <div class="radio-tower">
-                    <div class="tower-base"></div>
-                    <div class="tower-mast"></div>
-                    <div class="radio-waves-loading">
-                        <div class="wave wave-1"></div>
-                        <div class="wave wave-2"></div>
-                        <div class="wave wave-3"></div>
-                    </div>
-                </div>
-                <h1 class="loading-title">Super Radio</h1>
-                <p class="loading-subtitle">Live Radio & Hits</p>
-            </div>
-            <div class="loading-progress">
-                <div class="progress-bar">
-                    <div class="progress-fill"></div>
-                </div>
-                <div class="loading-text">Tuning in...</div>
-            </div>
+<body class="is-booting">
+    <!-- ============================== Icon sprite ============================== -->
+    <svg class="sprite" aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg">
+        <symbol id="i-signal" viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="2.6" fill="currentColor" />
+            <g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                <path d="M7.4 7.4a6.5 6.5 0 0 0 0 9.2M16.6 16.6a6.5 6.5 0 0 0 0-9.2" />
+                <path d="M4.2 4.2a11 11 0 0 0 0 15.6M19.8 19.8a11 11 0 0 0 0-15.6" />
+            </g>
+        </symbol>
+        <symbol id="i-play" viewBox="0 0 24 24">
+            <path d="M8 5.14v13.72a1 1 0 0 0 1.54.84l10.1-6.86a1 1 0 0 0 0-1.68L9.54 4.3A1 1 0 0 0 8 5.14Z"
+                fill="currentColor" />
+        </symbol>
+        <symbol id="i-pause" viewBox="0 0 24 24">
+            <path d="M7 4.5h3.2v15H7zM13.8 4.5H17v15h-3.2z" fill="currentColor" />
+        </symbol>
+        <symbol id="i-vol-high" viewBox="0 0 24 24">
+            <path d="M4 9.5h3.4L12 5.2v13.6L7.4 14.5H4z" fill="currentColor" />
+            <g fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round">
+                <path d="M15.6 9.2a4 4 0 0 1 0 5.6M18.4 6.6a8 8 0 0 1 0 10.8" />
+            </g>
+        </symbol>
+        <symbol id="i-vol-low" viewBox="0 0 24 24">
+            <path d="M4 9.5h3.4L12 5.2v13.6L7.4 14.5H4z" fill="currentColor" />
+            <path d="M15.6 9.2a4 4 0 0 1 0 5.6" fill="none" stroke="currentColor" stroke-width="1.9"
+                stroke-linecap="round" />
+        </symbol>
+        <symbol id="i-vol-mute" viewBox="0 0 24 24">
+            <path d="M4 9.5h3.4L12 5.2v13.6L7.4 14.5H4z" fill="currentColor" />
+            <path d="M16 9.5l5 5M21 9.5l-5 5" fill="none" stroke="currentColor" stroke-width="1.9"
+                stroke-linecap="round" />
+        </symbol>
+        <symbol id="i-share" viewBox="0 0 24 24">
+            <g fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="18" cy="5.5" r="2.6" />
+                <circle cx="6" cy="12" r="2.6" />
+                <circle cx="18" cy="18.5" r="2.6" />
+                <path d="M8.3 10.8l7.4-4M8.3 13.2l7.4 4" />
+            </g>
+        </symbol>
+        <symbol id="i-sun" viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="4.2" fill="currentColor" />
+            <g fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round">
+                <path d="M12 2.6v2.2M12 19.2v2.2M2.6 12h2.2M19.2 12h2.2M5.4 5.4l1.6 1.6M17 17l1.6 1.6M18.6 5.4L17 7M7 17l-1.6 1.6" />
+            </g>
+        </symbol>
+        <symbol id="i-moon" viewBox="0 0 24 24">
+            <path d="M20.4 14.6A8.6 8.6 0 0 1 9.4 3.6a8.8 8.8 0 1 0 11 11Z" fill="currentColor" />
+        </symbol>
+        <symbol id="i-menu" viewBox="0 0 24 24">
+            <path d="M4 7h16M4 12h16M4 17h16" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" />
+        </symbol>
+        <symbol id="i-close" viewBox="0 0 24 24">
+            <path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+        </symbol>
+        <symbol id="i-clock" viewBox="0 0 24 24">
+            <g fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round">
+                <circle cx="12" cy="12" r="8.6" />
+                <path d="M12 7.4V12l3 1.8" />
+            </g>
+        </symbol>
+        <symbol id="i-calendar" viewBox="0 0 24 24">
+            <g fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round">
+                <rect x="3.6" y="5.2" width="16.8" height="15.2" rx="2.6" />
+                <path d="M3.6 10h16.8M8.4 3.2v4M15.6 3.2v4" />
+            </g>
+        </symbol>
+        <symbol id="i-history" viewBox="0 0 24 24">
+            <g fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3.6 12a8.4 8.4 0 1 0 2.6-6.1L3.4 8.6" />
+                <path d="M3.2 4.2v4.6h4.6M12 7.6V12l3 1.8" />
+            </g>
+        </symbol>
+        <symbol id="i-next" viewBox="0 0 24 24">
+            <g fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M4 12h13M12.4 6.6L17.8 12l-5.4 5.4M20.4 5.4v13.2" />
+            </g>
+        </symbol>
+        <symbol id="i-news" viewBox="0 0 24 24">
+            <g fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M4.4 5.4h11.2v13.2a2 2 0 0 0 2 2H6.4a2 2 0 0 1-2-2Z" />
+                <path d="M15.6 9h2.2a2 2 0 0 1 2 2v7.6M7.6 9h5M7.6 12.6h5M7.6 16.2h3" />
+            </g>
+        </symbol>
+        <symbol id="i-external" viewBox="0 0 24 24">
+            <g fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M13.6 5h5.4v5.4M19 5l-7.6 7.6" />
+                <path d="M18 14.4v3.8a1.8 1.8 0 0 1-1.8 1.8H5.8A1.8 1.8 0 0 1 4 18.2V7.8A1.8 1.8 0 0 1 5.8 6h3.8" />
+            </g>
+        </symbol>
+        <symbol id="i-search" viewBox="0 0 24 24">
+            <g fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round">
+                <circle cx="10.8" cy="10.8" r="6.6" />
+                <path d="M15.6 15.6L20 20" />
+            </g>
+        </symbol>
+        <symbol id="i-wifi-off" viewBox="0 0 24 24">
+            <g fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round">
+                <path d="M2.6 8.6a15.6 15.6 0 0 1 5-3M10.4 4.6a15.6 15.6 0 0 1 11 4M5.8 12.2a10.6 10.6 0 0 1 2.8-1.8M14 10.2a10.6 10.6 0 0 1 4.2 2M9.2 15.8a5.6 5.6 0 0 1 5.6 0M3 3l18 18" />
+                <circle cx="12" cy="19.4" r="1.1" fill="currentColor" stroke="none" />
+            </g>
+        </symbol>
+    </svg>
+
+    <a class="skip-link" href="#main">Naar de inhoud</a>
+
+    <!-- ============================== Ambient backdrop ============================== -->
+    <div class="ambient" aria-hidden="true">
+        <canvas class="ambient__gl" id="gl-backdrop"></canvas>
+        <div class="ambient__layer" data-layer="a"></div>
+        <div class="ambient__layer" data-layer="b"></div>
+        <div class="ambient__veil"></div>
+        <div class="ambient__grain"></div>
+    </div>
+
+    <!-- ============================== Intro ============================== -->
+    <div class="intro" id="intro" role="status" aria-live="polite" aria-label="Bezig met laden">
+        <div class="intro__panel"></div>
+        <div class="intro__inner">
+            <span class="intro__mark">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-signal" /></svg>
+            </span>
+            <p class="intro__word">Super<em>Radio</em></p>
+            <p class="intro__tag">Live hitradio &middot; non-stop</p>
+        </div>
+        <div class="intro__meter">
+            <div class="intro__bar"><span></span></div>
+            <p class="intro__count mono">000</p>
         </div>
     </div>
 
-    <!-- Glass Background -->
-    <div class="glass-background">
-        <div class="orb orb-1"></div>
-        <div class="orb orb-2"></div>
-        <div class="orb orb-3"></div>
-    </div>
+    <!-- ============================== Header ============================== -->
+    <header class="topbar" id="topbar">
+        <div class="shell topbar__inner">
+            <a class="brand" href="#top" aria-label="Super Radio, naar boven">
+                <span class="brand__mark"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-signal" /></svg></span>
+                <span class="brand__word">Super<em>Radio</em></span>
+            </a>
 
-    <div class="app-wrapper">
-        <!-- Floating Header -->
-        <header class="glass-header">
-            <div class="container">
-                <div class="logo">
-                    <i class="fas fa-broadcast-tower logo-icon"></i>
-                    <span class="logo-text">SUPER<span class="highlight">RADIO</span></span>
-                </div>
-                <nav class="desktop-nav">
-                    <ul>
-                        <li><a href="#" class="nav-link active">Home</a></li>
-                        <li><a href="#news" class="nav-link">Nieuws</a></li>
-                        <li><a href="#schedule" class="nav-link">Programma's</a></li>
-                    </ul>
-                </nav>
-                <div class="header-actions">
-                    <button class="listen-live-btn" aria-label="Listen Live">
-                        <span class="icon-container"><i class="fas fa-play"></i></span>
-                        <span class="btn-text">LIVE</span>
-                    </button>
-                    <button class="mobile-menu-btn" aria-label="Open Menu">
-                        <i class="fas fa-bars"></i>
-                    </button>
-                </div>
-            </div>
-        </header>
-
-        <!-- Main Content -->
-        <main>
-            <!-- Hero / Player Section -->
-            <section class="hero-section">
-                <div class="hero-container">
-                    <div class="main-artwork-container">
-                        <div class="canvas-container">
-                            <canvas id="visualizer-canvas"></canvas>
-                        </div>
-                        <div class="artwork-wrapper">
-                            <img src="" alt="Album Art" class="main-artwork track-img">
-                            <div class="artwork-glow"></div>
-                        </div>
-                        <div class="live-indicator">
-                            <span class="pulse-dot"></span>
-                            <span class="live-text">LIVE ON AIR</span>
-                            <span class="listener-count-badge"><i class="fas fa-user"></i> <span
-                                    class="count">0</span></span>
-                        </div>
-                    </div>
-
-                    <div class="track-details">
-                        <h1 class="hero-title track-title">Loading...</h1>
-                        <p class="hero-artist track-artist">Loading...</p>
-
-                        <div class="hero-controls">
-                            <button class="hero-play-btn play-pause-btn">
-                                <i class="fas fa-play"></i>
-                            </button>
-                            <div class="volume-container">
-                                <i class="fas fa-volume-up"></i>
-                                <input type="range" class="volume-slider" min="0" max="100" value="80">
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </section>
-
-            <!-- Recent Tracks -->
-            <section class="content-section">
-                <div class="container">
-                    <div class="section-header">
-                        <h2><i class="fas fa-history"></i> Just Played</h2>
-                    </div>
-                    <div class="tracks-grid">
-                        <!-- Tracks injected here -->
-                    </div>
-                </div>
-            </section>
-
-            <!-- Schedule -->
-            <section id="schedule" class="content-section">
-                <div class="container">
-                    <div class="section-header">
-                        <h2><i class="fas fa-calendar-alt"></i> Schedule</h2>
-                    </div>
-                    <div class="schedule-container">
-                        <!-- Schedule injected here -->
-                    </div>
-                </div>
-            </section>
-
-            <!-- News -->
-            <section id="news" class="content-section">
-                <div class="container">
-                    <div class="section-header">
-                        <h2><i class="fas fa-newspaper"></i> News</h2>
-                    </div>
-                    <div class="news-grid">
-                        <!-- News injected here -->
-                    </div>
-                </div>
-            </section>
-        </main>
-
-        <!-- Mobile Menu Overlay -->
-        <div class="mobile-menu-content">
-            <nav>
-                <ul>
-                    <li><a href="#" class="active">Home</a></li>
-                    <li><a href="#news">Nieuws</a></li>
-                    <li><a href="#schedule">Programma's</a></li>
-                </ul>
+            <nav class="mainnav" aria-label="Hoofdnavigatie">
+                <a href="#speelt" class="mainnav__link">Speelt nu</a>
+                <a href="#programma" class="mainnav__link">Programma</a>
+                <a href="#nieuws" class="mainnav__link">Nieuws</a>
             </nav>
-        </div>
-    </div>
 
-    <!-- Sticky Bottom Player -->
-    <div id="sticky-player" class="sticky-player hidden">
-        <div class="sticky-container">
-            <div class="sticky-track-info">
-                <img src="" alt="Track Art" class="sticky-art track-img">
-                <div class="sticky-text">
-                    <div class="sticky-title track-title">Loading...</div>
-                    <div class="sticky-artist track-artist">Loading...</div>
-                </div>
-            </div>
+            <div class="topbar__actions">
+                <button class="ghost-btn" data-magnetic="0.8" id="theme-toggle" type="button" aria-label="Wissel naar licht thema">
+                    <svg class="only-dark" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-sun" /></svg>
+                    <svg class="only-light" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-moon" /></svg>
+                </button>
 
-            <div class="sticky-controls">
-                <button class="sticky-play-btn play-pause-btn">
-                    <i class="fas fa-play"></i>
+                <button class="live-btn" type="button" data-magnetic="1" data-play-toggle aria-label="Live luisteren, afspelen">
+                    <span class="live-btn__icon"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-play" /></svg></span>
+                    <span class="live-btn__label">Live</span>
+                </button>
+
+                <button class="ghost-btn mainnav__burger" id="nav-toggle" type="button" aria-expanded="false"
+                    aria-controls="mobile-nav" aria-label="Menu openen">
+                    <svg class="burger-open" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-menu" /></svg>
+                    <svg class="burger-close" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-close" /></svg>
                 </button>
             </div>
+        </div>
+    </header>
 
-            <div class="sticky-volume">
-                <i class="fas fa-volume-up"></i>
-                <input type="range" class="volume-slider" min="0" max="100" value="80">
+    <nav class="drawer" id="mobile-nav" aria-label="Mobiele navigatie" hidden>
+        <a href="#speelt">Speelt nu</a>
+        <a href="#programma">Programma</a>
+        <a href="#nieuws">Nieuws</a>
+    </nav>
+
+    <div id="scroll-content">
+    <span id="top"></span>
+    <main id="main">
+        <!-- ============================== Studio / hero ============================== -->
+        <section class="studio" aria-labelledby="studio-heading">
+            <h1 id="studio-heading" class="sr-only">Super Radio — live hitradio, non-stop muziek</h1>
+
+            <div class="shell studio__grid">
+                <div class="studio__info" data-speed="-0.02">
+                    <div class="onair" data-state="idle">
+                        <span class="onair__dot" aria-hidden="true"></span>
+                        <span class="onair__text">On air</span>
+                    </div>
+
+                    <p class="studio__eyebrow" id="studio-show">Non-stop muziek</p>
+
+                    <div class="np" aria-live="polite" aria-atomic="true">
+                        <p class="np__title" id="np-title">Verbinden…</p>
+                        <p class="np__artist" id="np-artist">Even geduld</p>
+                    </div>
+
+                    <div class="track-progress" id="track-progress" hidden>
+                        <div class="track-progress__rail">
+                            <div class="track-progress__fill" id="track-progress-fill"></div>
+                        </div>
+                        <div class="track-progress__times">
+                            <span class="mono" id="track-elapsed">0:00</span>
+                            <span class="mono" id="track-remaining">0:00</span>
+                        </div>
+                    </div>
+
+                    <div class="transport">
+                        <button class="play-btn" type="button" data-magnetic="1.2" data-play-toggle aria-label="Afspelen">
+                            <span class="play-btn__ring" aria-hidden="true"></span>
+                            <svg class="play-btn__icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-play" /></svg>
+                        </button>
+
+                        <div class="volume">
+                            <button class="ghost-btn" type="button" id="mute-toggle" aria-label="Dempen">
+                                <svg viewBox="0 0 24 24" aria-hidden="true" id="volume-icon"><use href="#i-vol-high" /></svg>
+                            </button>
+                            <input type="range" class="volume__slider" id="volume-slider" min="0" max="100" step="1"
+                                value="80" aria-label="Volume" aria-valuetext="80 procent">
+                        </div>
+
+                        <button class="ghost-btn ghost-btn--label" data-magnetic="0.8" type="button" id="share-btn">
+                            <svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-share" /></svg>
+                            <span>Delen</span>
+                        </button>
+                    </div>
+
+                    <p class="studio__hint">
+                        Tip: druk op <kbd>spatie</kbd> om te starten of te pauzeren.
+                    </p>
+                </div>
+
+                <div class="studio__art" data-speed="0.045">
+                    <figure class="cover" data-cursor-label="beweeg">
+                        <img id="np-art" class="cover__img" src="images/default-cover.jpg" width="1000" height="1000"
+                            alt="Hoes van het nummer dat nu speelt" fetchpriority="high">
+                        <canvas class="cover__gl" id="gl-cover" aria-hidden="true"></canvas>
+                        <span class="cover__sheen" aria-hidden="true"></span>
+                    </figure>
+                    <span class="cover__bloom" aria-hidden="true"></span>
+                </div>
+            </div>
+
+            <canvas class="spectrum" id="spectrum" aria-hidden="true"></canvas>
+        </section>
+
+        <!-- ============================== Ticker ============================== -->
+        <div class="marquee" data-marquee-speed="52" aria-hidden="true">
+            <div class="marquee__track">
+                <div class="marquee__group">
+                    <span class="marquee__item" data-marquee-text>Super Radio &mdash; live</span>
+                    <span class="marquee__star">
+                        <svg viewBox="0 0 24 24"><use href="#i-signal" /></svg>
+                    </span>
+                    <span class="marquee__item marquee__item--ghost">Non-stop hits</span>
+                    <span class="marquee__star">
+                        <svg viewBox="0 0 24 24"><use href="#i-signal" /></svg>
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        <!-- ============================== Playlist ============================== -->
+        <section class="band" id="speelt" aria-labelledby="speelt-heading">
+            <div class="shell">
+                <header class="band__head">
+                    <h2 id="speelt-heading">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-history" /></svg>
+                        <span data-split>Speelt nu</span>
+                    </h2>
+                    <p class="band__sub" data-reveal>De laatste nummers op Super Radio, en wat eraan komt.</p>
+                </header>
+
+                <div class="playlist" data-reveal>
+                    <div class="playlist__col">
+                        <h3 class="col-title">Zojuist gedraaid</h3>
+                        <ol class="tracklist" id="recent-list" aria-busy="true">
+                            <li class="tracklist__skeleton"></li>
+                            <li class="tracklist__skeleton"></li>
+                            <li class="tracklist__skeleton"></li>
+                            <li class="tracklist__skeleton"></li>
+                        </ol>
+                    </div>
+
+                    <div class="playlist__col playlist__col--aside">
+                        <h3 class="col-title">
+                            <svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-next" /></svg>
+                            Komt eraan
+                        </h3>
+                        <ul class="upnext" id="upcoming-list" aria-busy="true">
+                            <li class="upnext__skeleton"></li>
+                            <li class="upnext__skeleton"></li>
+                            <li class="upnext__skeleton"></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ============================== Schedule ============================== -->
+        <section class="band band--alt" id="programma" aria-labelledby="programma-heading">
+            <div class="shell">
+                <header class="band__head">
+                    <h2 id="programma-heading">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-calendar" /></svg>
+                        <span data-split>Programma</span>
+                    </h2>
+                    <p class="band__sub" data-reveal>Wat er vandaag en morgen op de zender staat.</p>
+                </header>
+
+                <div class="schedule" id="schedule" data-reveal aria-busy="true">
+                    <div class="schedule__skeleton"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ============================== News ============================== -->
+        <section class="band" id="nieuws" aria-labelledby="nieuws-heading">
+            <div class="shell">
+                <header class="band__head">
+                    <h2 id="nieuws-heading">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-news" /></svg>
+                        <span data-split>Muzieknieuws</span>
+                    </h2>
+                    <p class="band__sub" data-reveal>Verse muziekberichten, ververst elke vijf minuten.</p>
+                </header>
+
+                <div class="news" id="news" data-reveal aria-busy="true">
+                    <article class="news__skeleton"></article>
+                    <article class="news__skeleton"></article>
+                    <article class="news__skeleton"></article>
+                </div>
+
+                <div class="band__more" id="news-more"></div>
+            </div>
+        </section>
+    </main>
+
+    <!-- ============================== Footer ============================== -->
+    <footer class="footer">
+        <div class="shell footer__inner">
+            <div class="footer__brand">
+                <span class="brand__mark"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-signal" /></svg></span>
+                <div>
+                    <p class="footer__word">Super<em>Radio</em></p>
+                    <p class="footer__tag">Non-stop hits, dag en nacht.</p>
+                </div>
+            </div>
+
+            <nav class="footer__nav" aria-label="Voettekst">
+                <a href="#speelt">Speelt nu</a>
+                <a href="#programma">Programma</a>
+                <a href="#nieuws">Nieuws</a>
+                <a href="https://laut.fm/super-radio" rel="noopener noreferrer" target="_blank">
+                    Zender op laut.fm
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-external" /></svg>
+                </a>
+            </nav>
+
+            <p class="footer__legal">
+                <span>&copy; <span id="year">2026</span> Super Radio</span>
+                <span class="footer__dot" aria-hidden="true">·</span>
+                <span>Stream via laut.fm</span>
+                <span class="footer__dot" aria-hidden="true">·</span>
+                <span>Nieuws via NU.nl</span>
+            </p>
+        </div>
+    </footer>
+    </div><!-- /#scroll-content -->
+
+    <!-- ============================== Sticky transport ============================== -->
+    <div class="dock" id="dock" hidden>
+        <div class="dock__progress" id="dock-progress"><span></span></div>
+        <div class="shell dock__inner">
+            <div class="dock__meta">
+                <img class="dock__art" id="dock-art" src="images/default-cover.jpg" width="56" height="56" alt=""
+                    loading="lazy">
+                <div class="dock__text">
+                    <p class="dock__title" id="dock-title">Verbinden…</p>
+                    <p class="dock__artist" id="dock-artist">Even geduld</p>
+                </div>
+            </div>
+
+            <button class="dock__play" type="button" data-play-toggle aria-label="Afspelen">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-play" /></svg>
+            </button>
+
+            <div class="volume dock__volume">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-vol-high" /></svg>
+                <input type="range" class="volume__slider" id="dock-volume" min="0" max="100" step="1" value="80"
+                    aria-label="Volume">
             </div>
         </div>
     </div>
 
-    <!-- Notification Container -->
-    <div class="notification-container"></div>
+    <!-- ============================== Toasts ============================== -->
+    <div class="toasts" id="toasts" role="status" aria-live="polite" aria-atomic="false"></div>
+
+    <noscript>
+        <div class="noscript">
+            <h2>JavaScript staat uit</h2>
+            <p>Super Radio heeft JavaScript nodig voor de speler en de trackinformatie. Je kunt de stream ook
+                rechtstreeks openen:</p>
+            <p><a class="noscript__link" href="https://stream.laut.fm/super-radio">stream.laut.fm/super-radio</a></p>
+        </div>
+    </noscript>
 
     <script type="module" src="js/main.js"></script>
 </body>

@@ -1,52 +1,99 @@
-export const STATION_NAME = 'super-radio';
-export const BASE_URL = 'https://api.laut.fm';
-export const STREAM_URL = `https://stream.laut.fm/${STATION_NAME}`;
+/**
+ * Centrale configuratie voor Super Radio.
+ * Bevat geen geheimen: alles hier is publiek en veilig in de repo.
+ */
 
-// Spotify API Configuration
-// WARNING: Secrets removed for client-side security.
-// Use a backend proxy or secure token service in production.
-export const SPOTIFY_CLIENT_ID = 'fdeaefab6ddc48ed9f4a24f2e96b2ec7';
-// export const SPOTIFY_CLIENT_SECRET = 'YOUR_SECRET_HERE'; // MOVED TO BACKEND
-export const SPOTIFY_TOKEN_URL = 'https://accounts.spotify.com/api/token';
-export const SPOTIFY_API_URL = 'https://api.spotify.com/v1';
+export const STATION = 'super-radio';
+export const API_BASE = 'https://api.laut.fm';
+export const STREAM_URL = `https://stream.laut.fm/${STATION}`;
+export const STATION_PAGE = `https://laut.fm/${STATION}`;
 
-// Default Image Configuration
-export const DEFAULT_COLORS = {
-    primary: '#00F0FF',    // Electric Cyan
-    secondary: '#FF00AA',  // Hot Pink
-    accent: '#7000FF',     // Bright Purple
-    dark: '#050510',       // Deep Navy/Black
-};
+/* --- Artwork ---------------------------------------------------------------
+ * De vorige opzet gebruikte Spotify met een client secret in de browser. Dat is
+ * onveilig en stond daarom uit, waardoor er nooit hoesjes verschenen. De iTunes
+ * Search API doet hetzelfde werk, is publiek, vereist geen sleutel en stuurt
+ * CORS-headers. Geen backend nodig.
+ */
+export const ARTWORK_API = 'https://itunes.apple.com/search';
+export const ARTWORK_SIZE = 600;
+export const ARTWORK_MIN_GAP_MS = 260;   // throttle: iTunes staat ~20 req/min toe
+export const ARTWORK_CACHE_KEY = 'sr.artwork.v1';
+export const ARTWORK_CACHE_MAX = 300;
 
-export const DEFAULT_TRACK_IMAGE = 'images/default-cover-premium.png';
+/* --- Media ---------------------------------------------------------------- */
+export const DEFAULT_COVER = 'images/default-cover.jpg';
+export const STATION_LOGO = 'images/icon-512.png';
 
+/** Eigen hoesjes voor de programma's van de zender. */
 export const SHOW_IMAGES = {
-    'Only The Best': 'images/cover-otb.png',
-    'SOUL MOTOWN AND DANCE CLASSICS': 'images/cover-soul.png',
-    "60's 70's And 80's": 'images/cover-retro.png',
-    "The Best Of The 60s & 70s": 'images/cover-retro.png',
-    'Night': 'images/cover-night.png',
-    'Tophits': 'images/cover-hits.png',
-    'Top Hits': 'images/cover-hits.png',
-    'de jaren 80 +': 'images/cover-80s.png',
-    'De jaren 80': 'images/cover-80s.png',
-    'Greatest Hits': 'images/cover-hits.png',
-    'Love Zone': 'images/cover-lovezone.png',
-    '90s': 'images/cover-90s.png',
-    'HITS OF THE 80s': 'images/cover-80s.png',
-    'Dance Classics': 'images/cover-soul.png',
-    'NON-STOP': 'images/cover-nonstop.png'
+    'only the best': 'images/cover-otb.jpg',
+    'soul motown and dance classics': 'images/cover-soul.jpg',
+    'dance classics': 'images/cover-soul.jpg',
+    'soul motown': 'images/cover-soul.jpg',
+    "60's 70's and 80's": 'images/cover-retro.jpg',
+    'the best of the 60s & 70s': 'images/cover-retro.jpg',
+    'the 60s & 70s': 'images/cover-retro.jpg',
+    'night': 'images/cover-night.jpg',
+    'night shift': 'images/cover-night.jpg',
+    'tophits': 'images/cover-hits.jpg',
+    'top hits': 'images/cover-hits.jpg',
+    'greatest hits': 'images/cover-hits.jpg',
+    'de jaren 80 +': 'images/cover-80s.jpg',
+    'de jaren 80': 'images/cover-80s.jpg',
+    'hits of the 80s': 'images/cover-80s.jpg',
+    'love zone': 'images/cover-lovezone.jpg',
+    '90s': 'images/cover-90s.jpg',
+    'the 90s': 'images/cover-90s.jpg',
+    'non-stop': 'images/cover-nonstop.jpg',
+    'nonstop': 'images/cover-nonstop.jpg'
 };
 
-export const BACKGROUND_IMAGES = [
-    'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=800&h=800&fit=crop',
-    'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=800&h=800&fit=crop',
-    'https://images.unsplash.com/photo-1514320291840-2e0a9bf2a9ae?w=800&h=800&fit=crop',
-    'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&h=800&fit=crop',
-    'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=800&h=800&fit=crop',
-    'https://images.unsplash.com/photo-1518609878373-06d740f60d8b?w=800&h=800&fit=crop',
-    'https://images.unsplash.com/photo-1511379938547-c1f69419868d?w=800&h=800&fit=crop',
-    'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=800&h=800&fit=crop',
-    'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&h=800&fit=crop',
-    'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=800&h=800&fit=crop'
+/** Namen die duiden op een zenderjingle of programma, niet op een artiest. */
+export const STATION_ALIASES = [
+    'super-radio', 'super radio', 'superradio', 'super - radio', 'super -radio', 'super- radio',
+    'soul motown and dance classics', 'soulmotownanddanceclassics', 'dance classics'
 ];
+
+/* --- Nieuws --------------------------------------------------------------- */
+export const NEWS_FEED = 'https://www.nu.nl/rss/muziek';
+
+/**
+ * nu.nl stuurt geen Access-Control-Allow-Origin, dus de feed kan niet direct
+ * uit de browser gehaald worden. Deze bronnen worden op volgorde geprobeerd;
+ * de eerste die antwoordt wint.
+ *
+ * rss2json staat vooraan: die geeft kant-en-klare JSON met CORS-headers, dus
+ * geen XML-parsing en geen HTML-opschoning nodig. Gebruik geen `count`- of
+ * `order_by`-parameter: die vereisen een betaalde sleutel en leveren anders 422.
+ *
+ * Dit blijft een zwakke plek: het zijn gratis diensten van derden die zonder
+ * aankondiging kunnen uitvallen. Valt alles weg, dan verbergt ui.js de
+ * nieuwssectie in plaats van een lege kop te tonen.
+ */
+export const NEWS_SOURCES = [
+    {
+        type: 'json',
+        url: (feed) => `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(feed)}`
+    },
+    {
+        type: 'xml',
+        url: (feed) => `https://api.allorigins.win/raw?url=${encodeURIComponent(feed)}`
+    },
+    {
+        type: 'xml',
+        url: (feed) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(feed)}`
+    }
+];
+export const NEWS_INITIAL = 6;
+
+/* --- Verversintervallen (ms) ---------------------------------------------- */
+export const POLL_TRACK = 20_000;      // huidig nummer + recent
+export const POLL_SCHEDULE = 300_000;  // programmering verandert per uur
+export const POLL_NEWS = 300_000;
+export const SCHEDULE_TTL = 600_000;   // cache-duur voor /schedule
+
+/* --- Speler --------------------------------------------------------------- */
+export const DEFAULT_VOLUME = 80;
+export const RECONNECT_BASE_MS = 1_000;
+export const RECONNECT_MAX_MS = 30_000;
+export const RECONNECT_MAX_TRIES = 8;

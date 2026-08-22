@@ -1,137 +1,227 @@
-import { DEFAULT_TRACK_IMAGE } from './config.js';
-import { SuperAudioPlayer } from './player.js';
+/**
+ * Startpunt: zet de speler, de UI en de sfeerlaag op, en houdt de data actueel.
+ */
+
+import { POLL_TRACK, POLL_SCHEDULE, POLL_NEWS, DEFAULT_COVER } from './config.js';
+import { RadioPlayer } from './player.js';
+import { Ambient, Spectrum } from './ambient.js';
 import {
-    fetchCurrentTrack,
-    fetchRecentTracks,
-    fetchUpcomingTracks,
-    fetchNews,
-    getCurrentShow,
-    getUpcomingShows,
-    getListenerCount,
-    getTrackImage
+    getCurrentTrack, getRecentTracks, getUpcomingArtists,
+    getShows, getArtwork, getNews
 } from './api.js';
 import {
-    initializeUI,
-    updateCurrentTrackUI,
-    displayRecentTracks,
-    displayUpcomingTracks,
-    displayNews,
-    displayScheduleInfo,
-    updateListenerCount,
-    hideLoadingScreen,
-    showNotification
+    initUI, uiHooks, renderCurrentTrack, renderRecentTracks, renderUpcoming,
+    renderSchedule, renderNews, renderShowLabel, toast
 } from './ui.js';
-import { initializeVisualizer } from './visualizer.js';
+import { initFx } from './fx/index.js';
 
-const UPDATE_INTERVAL = 30000; // 30 seconds
-const NEWS_INTERVAL = 300000; // 5 minutes
+let player;
+let ambient;
+let spectrum;
+let fx;
+let lastTrackKey = null;
 
-async function updateEverything() {
-    try {
-        const [currentTrack, recent, upcoming, currentShow, upcomingShows, listeners] = await Promise.allSettled([
-            fetchCurrentTrack(),
-            fetchRecentTracks(),
-            fetchUpcomingTracks(),
-            getCurrentShow(),
-            getUpcomingShows(),
-            getListenerCount()
-        ]);
+/**
+ * Interval dat stilstaat zolang het tabblad verborgen is, en direct bijwerkt
+ * zodra de gebruiker terugkomt. De oude opzet bleef in de achtergrond elke
+ * 30 seconden doorpollen.
+ */
+class Ticker {
+    constructor(task, interval) {
+        this.task = task;
+        this.interval = interval;
+        this.timer = null;
+        this.lastRun = 0;
+    }
 
-        if (currentTrack.status === 'fulfilled') {
-            // Enhance with Spotify Image if needed
-            let track = currentTrack.value;
-
-            // Normalize Artist and Title to ensure they are strings
-            if (track.artist && typeof track.artist === 'object') {
-                track.artist = track.artist.name || 'Unknown Artist';
-            }
-            if (track.title && typeof track.title === 'object') {
-                track.title = track.title.name || 'Unknown Track';
-            }
-
-            // Try to fetch better image
-            const image = await getTrackImage(track.title, track.artist);
-            if (image) track.image = image;
-            else track.image = track.cover || DEFAULT_TRACK_IMAGE; // Fallback to what API gave or default
-
-
-            updateCurrentTrackUI(track);
-
-            // Update Visualizer Theme
-            if (window.colorThemeManager && track.image) {
-                const colors = await window.colorThemeManager.extractColorsFromImage(track.image);
-                window.colorThemeManager.applyColorTheme(colors);
-            }
-        } else {
-            // Handle offline/error state
-            console.warn('Current track fetch failed');
-            updateCurrentTrackUI({
-                title: 'Stream Offline',
-                artist: 'Check Connection',
-                image: null
-            });
+    async run() {
+        this.lastRun = Date.now();
+        try {
+            await this.task();
+        } catch (error) {
+            console.warn('[super-radio] verversen mislukt:', error);
         }
+    }
 
-        if (recent.status === 'fulfilled') {
-            const recentTracks = recent.value;
-            // Process images for recent tracks
-            await Promise.all(recentTracks.map(async (track) => {
-                // Normalize items
-                const artist = track.artist.name || track.artist || 'Unknown Artist';
-                const title = track.title || track.name || 'Unknown Track';
+    start() {
+        this.stop();
+        this.timer = setInterval(() => this.run(), this.interval);
+    }
 
-                const image = await getTrackImage(title, artist);
-                if (image) {
-                    track.image = image;
-                }
-            }));
-            displayRecentTracks(recentTracks);
-        }
+    stop() {
+        if (this.timer) clearInterval(this.timer);
+        this.timer = null;
+    }
 
-        if (upcoming.status === 'fulfilled') displayUpcomingTracks(upcoming.value);
-
-        if (currentShow.status === 'fulfilled' || upcomingShows.status === 'fulfilled') {
-            displayScheduleInfo(
-                currentShow.status === 'fulfilled' ? currentShow.value : null,
-                upcomingShows.status === 'fulfilled' ? upcomingShows.value : []
-            );
-        }
-
-        if (listeners.status === 'fulfilled') updateListenerCount(listeners.value);
-
-    } catch (error) {
-        console.error('Error updating data:', error);
-        // showNotification('Error updating data'); // Optional: don't spam user
+    /** Haalt achterstand in als het tabblad lang verborgen was. */
+    resume() {
+        this.start();
+        if (Date.now() - this.lastRun >= this.interval) this.run();
     }
 }
 
-async function init() {
-    console.log('Super Radio Initializing...');
+const tickers = [];
 
-    // Initialize Player
-    const player = new SuperAudioPlayer();
+/* ================================================================ ophalen */
 
-    // Initialize UI
-    initializeUI(player);
+async function refreshNowPlaying() {
+    let track = null;
 
-    // Initialize Visualizer
-    initializeVisualizer();
+    try {
+        track = await getCurrentTrack();
+    } catch {
+        track = null;
+    }
 
-    // Initial Fetch
-    await updateEverything();
+    if (!track) {
+        renderCurrentTrack({
+            title: 'Stream niet bereikbaar',
+            artist: 'We proberen het opnieuw',
+            image: DEFAULT_COVER
+        });
+        return;
+    }
 
-    // Helper for News
-    fetchNews().then(news => displayNews(news));
+    // Alleen werk doen als het nummer echt gewisseld is.
+    if (track.key === lastTrackKey) return;
+    lastTrackKey = track.key;
 
-    // Hide Loading Screen
-    setTimeout(hideLoadingScreen, 1000);
+    track.image = (await getArtwork(track.title, track.artist)) || DEFAULT_COVER;
+    renderCurrentTrack(track);
 
-    // Start Loops
-    setInterval(updateEverything, UPDATE_INTERVAL);
-    setInterval(() => fetchNews().then(news => displayNews(news)), NEWS_INTERVAL);
-
-    console.log('Super Radio Ready!');
+    // De sfeerlaag in CSS is het vangnet; draait WebGL, dan neemt die het over.
+    if (!fx?.hasGl) ambient?.apply(track.image);
+    fx?.setArtwork(track.image);
 }
 
-// Start
-document.addEventListener('DOMContentLoaded', init);
+async function refreshPlaylists() {
+    const [recentResult, upcomingResult] = await Promise.allSettled([
+        getRecentTracks(),
+        getUpcomingArtists()
+    ]);
+
+    if (upcomingResult.status === 'fulfilled') renderUpcoming(upcomingResult.value);
+
+    if (recentResult.status !== 'fulfilled') return;
+    const tracks = recentResult.value;
+
+    // Eerst tonen met de standaardhoes, daarna aanvullen. Na de eerste ronde
+    // zit alles in de cache en is de tweede render meteen raak.
+    renderRecentTracks(tracks);
+
+    const enriched = await Promise.all(tracks.map(async (track) => ({
+        ...track,
+        image: (await getArtwork(track.title, track.artist)) || DEFAULT_COVER
+    })));
+
+    renderRecentTracks(enriched);
+}
+
+async function refreshSchedule() {
+    const shows = await getShows();
+    renderSchedule(shows);
+    renderShowLabel(shows.current);
+}
+
+async function refreshNews() {
+    renderNews(await getNews());
+}
+
+/* ================================================================== start */
+
+async function boot() {
+    // De effectenlaag eerst: die neemt de intro over en meldt hoe ver we zijn.
+    fx = initFx();
+    const { preloader } = fx;
+
+    uiHooks.text = (title, artist) => fx.setText(title, artist);
+    uiHooks.rendered = (scope) => fx.refresh(scope);
+
+    player = new RadioPlayer();
+    initUI(player);
+    preloader.set(0.2);
+
+    ambient = new Ambient();
+    spectrum = new Spectrum(document.getElementById('spectrum'));
+
+    document.addEventListener('sr:playing', (event) => {
+        spectrum?.setPlaying(event.detail.playing);
+        fx.setPlaying(event.detail.playing);
+    });
+
+    // Lettertypes meetellen in de voortgang; zonder ze springt de titel later.
+    document.fonts?.ready.then(() => preloader.set(0.45));
+
+    const first = Promise.allSettled([refreshNowPlaying(), refreshSchedule()]);
+    first.then(() => preloader.set(0.85));
+    await first;
+
+    await preloader.finish();
+
+    refreshPlaylists();
+    refreshNews();
+
+    tickers.push(
+        withInterval(refreshNowPlaying, POLL_TRACK),
+        withInterval(refreshPlaylists, POLL_TRACK),
+        withInterval(refreshSchedule, POLL_SCHEDULE),
+        withInterval(refreshNews, POLL_NEWS)
+    );
+
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden) tickers.forEach((ticker) => ticker.stop());
+        else tickers.forEach((ticker) => ticker.resume());
+    });
+
+    handleLaunchIntent();
+    registerServiceWorker();
+}
+
+function withInterval(task, interval) {
+    const ticker = new Ticker(task, interval);
+    ticker.lastRun = Date.now();
+    ticker.start();
+    return ticker;
+}
+
+/** Snelkoppelingen uit het PWA-manifest: /?action=play en /?section=… */
+function handleLaunchIntent() {
+    const params = new URLSearchParams(window.location.search);
+
+    if (params.get('action') === 'play') {
+        player.play();   // lukt dit niet, dan meldt de speler 'blocked'
+    }
+
+    const section = params.get('section');
+    const target = section && document.getElementById(section === 'schedule' ? 'programma' : section);
+    if (target) target.scrollIntoView({ block: 'start' });
+}
+
+function registerServiceWorker() {
+    if (!('serviceWorker' in navigator)) return;
+    if (location.protocol !== 'https:' && location.hostname !== 'localhost') return;
+
+    navigator.serviceWorker.register('sw.js').catch((error) => {
+        console.warn('[super-radio] service worker registreren mislukt:', error);
+    });
+}
+
+/* Modules zijn deferred, dus de DOM staat er al. Toch een vangnet voor het
+   geval dit script ooit anders geladen wordt. */
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', start, { once: true });
+} else {
+    start();
+}
+
+function start() {
+    boot().catch((error) => {
+        console.error('[super-radio] opstarten mislukt:', error);
+
+        // Wat er ook misgaat: de intro moet weg, anders zit de bezoeker vast.
+        document.getElementById('intro')?.remove();
+        document.body.classList.remove('is-booting');
+        document.documentElement.classList.add('is-ready');
+        toast('Er ging iets mis bij het laden. Ververs de pagina.');
+    });
+}
