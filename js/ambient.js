@@ -232,10 +232,22 @@ export class Spectrum {
     /** Deel van de frequentiebanden dat bij 128 kbit mp3 nog signaal bevat. */
     static NUTTIG_DEEL = 0.76;
 
+    /**
+     * Gewenste afstand tussen de middens van twee balken, in pixels.
+     *
+     * Het aantal balken stond hiervoor vast op 64. Op een breed scherm werden
+     * dat dikke pillen van dertig pixels; op een smal scherm zag het er juist
+     * goed uit. Nu bepaalt de breedte hoeveel balken erin passen, zodat ze
+     * overal even dik zijn.
+     */
+    static STEEK = 13;
+    static MIN_BALKEN = 24;
+    static MAX_BALKEN = 160;
+
     constructor(canvas) {
         this.canvas = canvas;
         this.ctx = canvas?.getContext('2d');
-        this.bars = 64;
+        this.bars = 64;                       // wordt in resize() aangepast
         this.levels = new Array(this.bars).fill(0);
         this.targets = new Array(this.bars).fill(0);
         this.phase = 0;
@@ -287,6 +299,26 @@ export class Spectrum {
         this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
         this.width = width;
         this.height = height;
+
+        // Aantal balken meeschalen met de breedte, zodat ze overal even dik
+        // blijven in plaats van uit te rekken op een groot scherm.
+        const gewenst = clamp(
+            Math.round(width / Spectrum.STEEK),
+            Spectrum.MIN_BALKEN,
+            Spectrum.MAX_BALKEN
+        );
+
+        if (gewenst !== this.bars) {
+            const oud = this.levels;
+            this.bars = gewenst;
+            this.levels = new Array(gewenst).fill(0);
+            this.targets = new Array(gewenst).fill(0);
+
+            // Bestaande niveaus meenemen, anders klapt de balk even in.
+            for (let i = 0; i < gewenst; i += 1) {
+                this.levels[i] = oud[Math.floor((i / gewenst) * oud.length)] || 0;
+            }
+        }
     }
 
     start() {
