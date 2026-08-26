@@ -395,6 +395,17 @@
 
                 <div class="playlist" data-reveal>
                     <div class="playlist__col">
+                        <div class="session" id="session" data-reveal>
+                            <div class="session__head">
+                                <h3 class="col-title">Jouw sessie</h3>
+                                <p class="session__meta mono" id="session-meta"></p>
+                            </div>
+                            <canvas class="session__canvas" id="session-canvas" aria-hidden="true"></canvas>
+                            <p class="session__empty" id="session-empty">
+                                Zet de radio aan &mdash; hier tekent zich de vorm van je uitzending.
+                            </p>
+                        </div>
+
                         <h3 class="col-title">Zojuist gedraaid</h3>
                         <ol class="tracklist" id="recent-list" aria-busy="true">
                             <li class="tracklist__skeleton"></li>

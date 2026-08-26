@@ -17,11 +17,15 @@ import {
 import { initFx } from './fx/index.js';
 import { initExtras } from './extras.js';
 import { initStage } from './stage.js';
+import { BroadcastMemory } from './memory.js';
+import { SessionRibbon, formatDuur } from './ribbon.js';
+import { initLiveFavicon } from './favicon.js';
 
 let player;
 let ambient;
 let spectrum;
 let fx;
+let memory;
 let lastTrackKey = null;
 
 /**
@@ -98,6 +102,14 @@ async function refreshNowPlaying() {
     ambient?.setLayersEnabled(!fx?.hasGl);
     ambient?.apply(track.image);
     fx?.setArtwork(track.image);
+
+    // Vanaf nu horen de metingen bij dit nummer.
+    memory?.setTrack({
+        key: track.key,
+        title: track.title,
+        artist: track.artist,
+        kleur: getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#FF4230'
+    });
 }
 
 async function refreshPlaylists() {
@@ -135,6 +147,41 @@ async function refreshSchedule() {
 
 async function refreshNews() {
     renderNews(await getNews());
+}
+
+/**
+ * Zet de sessielijn op en houdt hem gevuld.
+ *
+ * De metingen komen van de speler; die worden elke frame gelezen maar maar een
+ * paar keer per seconde vastgelegd. De lijn zelf tekent zichzelf.
+ */
+function initSessionRibbon() {
+    const blok = document.getElementById('session');
+    const meta = document.getElementById('session-meta');
+    const leeg = document.getElementById('session-empty');
+    if (!blok) return;
+
+    const ribbon = new SessionRibbon(document.getElementById('session-canvas'), memory);
+
+    let laatsteRender = 0;
+    setInterval(() => {
+        if (player?.isPlaying) memory.meet(player.levels.overall);
+
+        const heeft = memory.heeftInhoud;
+        blok.classList.toggle('is-actief', heeft);
+        if (leeg) leeg.hidden = heeft;
+        if (meta && heeft) meta.textContent = formatDuur(memory.duur);
+
+        // Af en toe wegschrijven zodat een verversing de sessie niet wist.
+        const nu = Date.now();
+        if (heeft && nu - laatsteRender > 15_000) {
+            laatsteRender = nu;
+            memory.bewaar();
+        }
+    }, 250);
+
+    window.addEventListener('pagehide', () => memory.bewaar());
+    void ribbon;
 }
 
 /**
@@ -186,6 +233,11 @@ async function boot() {
     initExtras(player);
     initStage(player);
     fx.attachPlayer(player);
+
+    memory = new BroadcastMemory();
+    uiHooks.golfvorm = (key) => memory.golfvorm(key);
+    initSessionRibbon();
+    initLiveFavicon();
     preloader.set(0.2);
 
     ambient = new Ambient();

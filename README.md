@@ -32,6 +32,9 @@ js/
   extras.js         Installeerknop, slaaptimer, sneltoetsenvenster
   stage.js          Kijkmodus op volledig scherm
   sharecard.js      Tekent het nummer als deelbare afbeelding
+  memory.js         Uitzendgeheugen: legt vast hoe de uitzending klonk
+  ribbon.js         Tekent de sessielijn
+  favicon.js        Tabbladpictogram dat meekleurt en pulseert
   fx/               Effectenlaag, zie hieronder
 images/             Iconen, hoesjes en de OG-kaart (gegenereerd)
 ```
@@ -100,6 +103,26 @@ van om te springen. Browsers zonder `@property` laten hem gewoon omspringen.
 2. **`data-split` alleen op elementen met platte tekst.** De functie knipt de
    inhoud in woorden; zit er een icoon of link in, dan slaat hij het element
    over (en dat is met opzet).
+
+### Uitzendgeheugen
+
+Zolang je luistert legt `memory.js` vier keer per seconde het geluidsniveau
+vast, gekoppeld aan het nummer dat speelde en de kleur van de bijbehorende
+hoes. Daar komen twee dingen uit:
+
+- **De sessielijn** (`ribbon.js`): een doorlopende golf van je hele sessie, in
+  de kleuren van de programma's die voorbijkwamen.
+- **Golfvormen per nummer**: elke rij in "Zojuist gedraaid" toont de
+  werkelijke vorm van díé uitzending. Nummers van vóór je aankomst hebben er
+  geen; die plek blijft leeg.
+
+De buffer is begrensd op 1400 punten. Zit hij vol, dan wordt elk tweede punt
+weggegooid en verdubbelt de tijdschaal. Zo past een sessie van willekeurige
+lengte altijd in beeld, met een resolutie die geleidelijk grover wordt in
+plaats van af te kappen.
+
+Alles blijft in het tabblad, in `sessionStorage`. Er gaat niets naar een
+server; er ís ook geen server.
 
 ### Echte audioanalyse
 

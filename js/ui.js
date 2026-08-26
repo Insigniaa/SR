@@ -26,7 +26,9 @@ export const uiHooks = {
     /** (title, artist) => void — neemt het zetten van de tracktitel over */
     text: null,
     /** (scope) => void — na het renderen van nieuwe blokken */
-    rendered: null
+    rendered: null,
+    /** (key) => number[]|null — golfvorm van een gedraaid nummer */
+    golfvorm: null
 };
 
 /** Eén keer opzoeken, hergebruiken. */
@@ -507,6 +509,7 @@ export function renderRecentTracks(tracks) {
                 el('p', { class: 'track__title', text: track.title }),
                 el('p', { class: 'track__artist', text: track.artist })
             ]),
+            golfvormNode(track),
             zoekbaar
                 ? el('a', {
                     class: 'track__action',
@@ -643,6 +646,36 @@ export function renderNews(items) {
 
     replaceChildren(dom.newsMore, button);
     afterRender(dom.news);
+}
+
+/**
+ * Tekent de werkelijke golfvorm van dit nummer, als die tijdens het luisteren
+ * is opgenomen. Nummers van vóór je aankomst hebben er geen; die plek blijft
+ * dan leeg.
+ */
+function golfvormNode(track) {
+    const data = uiHooks.golfvorm?.(track.key);
+    if (!data?.length) return el('span', { class: 'track__wave track__wave--leeg', 'aria-hidden': 'true' });
+
+    const NS = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(NS, 'svg');
+    svg.setAttribute('class', 'track__wave');
+    svg.setAttribute('viewBox', `0 0 ${data.length * 3} 24`);
+    svg.setAttribute('preserveAspectRatio', 'none');
+    svg.setAttribute('aria-hidden', 'true');
+
+    data.forEach((v, i) => {
+        const hoog = Math.max(1.5, v ** 0.75 * 11);
+        const rect = document.createElementNS(NS, 'rect');
+        rect.setAttribute('x', String(i * 3));
+        rect.setAttribute('y', String(12 - hoog));
+        rect.setAttribute('width', '1.7');
+        rect.setAttribute('height', String(hoog * 2));
+        rect.setAttribute('rx', '0.85');
+        svg.append(rect);
+    });
+
+    return svg;
 }
 
 function setNewsVisible(visible) {

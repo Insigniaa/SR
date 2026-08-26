@@ -2874,3 +2874,102 @@ body.stage-open {
         transition: none;
     }
 }
+
+/* =============================================================================
+   UITZENDGEHEUGEN — sessielijn en golfvormen per nummer
+   ========================================================================== */
+
+.session {
+    margin-bottom: 1.6rem;
+    padding: 1rem 1.1rem 1.15rem;
+    border-radius: var(--r-m);
+    border: 1px solid var(--line);
+    background: var(--surface);
+    transition: border-color var(--t), background var(--t);
+}
+
+.session.is-actief {
+    border-color: color-mix(in srgb, var(--accent) 32%, transparent);
+    background: color-mix(in srgb, var(--accent) 6%, transparent);
+}
+
+.session__head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.session__head .col-title {
+    margin-bottom: 0;
+}
+
+.session__meta {
+    font-size: .74rem;
+    color: var(--accent);
+}
+
+.session__canvas {
+    width: 100%;
+    height: 62px;
+    margin-top: .7rem;
+}
+
+.session__empty {
+    margin-top: .55rem;
+    font-size: .84rem;
+    color: var(--text-3);
+}
+
+.session__empty[hidden] {
+    display: none;
+}
+
+/* --- golfvorm per gedraaid nummer --- */
+
+.track {
+    grid-template-columns: auto 56px minmax(0, 1fr) auto auto;
+}
+
+.track__wave {
+    width: 74px;
+    height: 22px;
+    flex-shrink: 0;
+    color: var(--accent);
+    opacity: .55;
+    transition: opacity var(--t-fast);
+}
+
+.track__wave rect {
+    fill: currentColor;
+}
+
+.track:hover .track__wave {
+    opacity: .9;
+}
+
+/* Nummers van vóór je aankomst hebben geen opname; die plek blijft leeg maar
+   houdt wel de kolom uitgelijnd. */
+.track__wave--leeg {
+    display: block;
+    width: 74px;
+    height: 22px;
+}
+
+@media (max-width: 1100px) {
+
+    .track__wave,
+    .track__wave--leeg {
+        display: none;
+    }
+
+    .track {
+        grid-template-columns: auto 56px minmax(0, 1fr) auto;
+    }
+}
+
+@media (max-width: 780px) {
+    .track {
+        grid-template-columns: 44px minmax(0, 1fr) auto;
+    }
+}
