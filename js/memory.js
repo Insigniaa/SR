@@ -17,8 +17,8 @@
  */
 
 const HZ = 4;                 // metingen per seconde
-const MAX_PUNTEN = 1400;      // bovengrens; daarboven wordt de lijn gehalveerd
-const PER_TRACK = 48;         // punten in een miniatuur-golfvorm
+export const MAX_PUNTEN = 300; // ook de breedte van de lijn in balken
+const PER_TRACK = 20;         // punten in een miniatuur-golfvorm
 const OPSLAG = 'sr.sessie.v1';
 
 export class BroadcastMemory {

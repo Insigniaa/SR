@@ -8,7 +8,8 @@
  * uitzending getekend die alleen jij hebt gehoord.
  */
 
-import { onTick, viewport, damp, reducedMotion } from './fx/core.js';
+import { onTick, damp, reducedMotion } from './fx/core.js';
+import { MAX_PUNTEN } from './memory.js';
 
 export class SessionRibbon {
     constructor(canvas, memory) {
@@ -65,21 +66,34 @@ export class SessionRibbon {
         ctx.globalAlpha = this.verschijning;
 
         const midden = h / 2;
-        const stap = w / punten.length;
-        const breed = Math.max(1, stap * 0.72);
+
+        // Vaste steek: de lijn groeit van links naar rechts mee met de sessie
+        // in plaats van uitgesmeerd te worden. Pas als de buffer vol zit
+        // (MAX_PUNTEN) vult hij precies de breedte, en halveert het geheugen
+        // zichzelf om ruimte te maken.
+        const steek = w / MAX_PUNTEN;
+        const breed = Math.max(1.5, steek * 0.62);
+
+        // Radio is zwaar gecomprimeerd: het ruwe niveau schommelt maar weinig,
+        // en zonder herschaling wordt elke golfvorm een massief blok. Daarom
+        // rekken we het bereik van deze sessie open naar de volle hoogte.
+        let laag = 1;
+        let hoogst = 0;
+        for (const p of punten) {
+            if (p.v < laag) laag = p.v;
+            if (p.v > hoogst) hoogst = p.v;
+        }
+        const spanwijdte = Math.max(0.04, hoogst - laag);
 
         for (let i = 0; i < punten.length; i += 1) {
             const p = punten[i];
-            const x = i * stap;
-
-            // Symmetrisch om de middellijn: leest als een geluidsgolf, niet
-            // als een staafdiagram.
-            const hoog = Math.max(1, p.v ** 0.75 * h * 0.46);
+            const genormaliseerd = (p.v - laag) / spanwijdte;
+            const hoog = Math.max(1.5, (0.12 + genormaliseerd * 0.88) * h * 0.46);
 
             ctx.fillStyle = p.kleur;
-            ctx.globalAlpha = this.verschijning * (0.35 + p.v * 0.65);
+            ctx.globalAlpha = this.verschijning * (0.4 + genormaliseerd * 0.6);
             ctx.beginPath();
-            ctx.roundRect(x, midden - hoog, breed, hoog * 2, breed / 2);
+            ctx.roundRect(i * steek, midden - hoog, breed, hoog * 2, breed / 2);
             ctx.fill();
         }
 

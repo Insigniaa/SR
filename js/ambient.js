@@ -241,6 +241,10 @@ export class Spectrum {
         this.phase = 0;
         this.energy = 0;          // 0 = gepauzeerd, 1 = speelt
         this.targetEnergy = 0;
+
+        /** Meebewegend plafond: stijgt meteen, zakt langzaam. Houdt de balken
+         *  uit het maximum zonder dat hard en zacht er hetzelfde uit gaan zien. */
+        this.plafond = 0.5;
         this.raf = null;
         this.running = false;
 
@@ -334,6 +338,11 @@ export class Spectrum {
 
         const fft = this.player?.canAnalyse ? this.player.spectrum : null;
 
+        // Plafond van de vorige frame gebruiken en meteen laten zakken; de piek
+        // van deze frame duwt hem zo nodig weer omhoog.
+        this.plafond = Math.max(0.22, this.plafond * 0.995, this.piekVorigeFrame || 0);
+        this.piekDezeFrame = 0;
+
         for (let i = 0; i < this.bars; i += 1) {
             const n = i / this.bars;
 
@@ -353,12 +362,13 @@ export class Spectrum {
                 for (let k = van; k < tot; k += 1) som += fft[k];
                 const ruw = (som / (tot - van)) / 255;
 
-                // Muziek heeft van nature veel meer energie in de lage tonen.
-                // Zonder correctie staan links hoge balken en rechts een vlakke
-                // lijn. Deze kanteling tilt de hoge banden op, net als de
-                // weging in een echte spectrumanalyser; het blijft de gemeten
-                // data, alleen anders geschaald.
-                this.targets[i] = clamp(ruw * (1 + n * 2.1), 0, 1);
+                // Muziek heeft van nature meer energie in de lage tonen; deze
+                // kanteling tilt de hoge banden op, zoals de weging in een
+                // spectrumanalyser. Daarna delen door het meebewegende plafond,
+                // anders staat alles tegen het maximum aan.
+                const gekanteld = ruw * (1 + n * 1.2);
+                if (gekanteld > this.piekDezeFrame) this.piekDezeFrame = gekanteld;
+                this.targets[i] = clamp(gekanteld / this.plafond, 0, 1);
             } else {
                 // Terugval: drie sinussen geven een onregelmatig patroon.
                 const wave =
@@ -382,5 +392,6 @@ export class Spectrum {
         }
 
         ctx.globalAlpha = 1;
+        this.piekVorigeFrame = this.piekDezeFrame;
     }
 }

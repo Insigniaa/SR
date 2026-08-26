@@ -257,6 +257,13 @@ export class RadioPlayer extends EventTarget {
             analyser.fftSize = 512;
             analyser.smoothingTimeConstant = 0.75;
 
+            // Standaard rekent de analyser -100 tot -30 dB uit naar 0..255.
+            // Radio is zwaar gecomprimeerd en zit vrijwel altijd boven -30,
+            // dus alles klemde vast op 255 en het spectrum stond continu vol.
+            // Met meer kopruimte komt de dynamiek weer in beeld.
+            analyser.minDecibels = -85;
+            analyser.maxDecibels = -12;
+
             const gain = ctx.createGain();
 
             // De volgorde is niet vrijblijvend: het volume moet ná de analyser

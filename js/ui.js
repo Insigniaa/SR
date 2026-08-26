@@ -657,21 +657,30 @@ function golfvormNode(track) {
     const data = uiHooks.golfvorm?.(track.key);
     if (!data?.length) return el('span', { class: 'track__wave track__wave--leeg', 'aria-hidden': 'true' });
 
+    // Zelfde herschaling als de sessielijn: zonder dat wordt het een blok.
+    const laag = Math.min(...data);
+    const hoogst = Math.max(...data);
+    const spanwijdte = Math.max(0.04, hoogst - laag);
+
     const NS = 'http://www.w3.org/2000/svg';
+    const STEEK = 4.2;
+    const BREED = 2.4;
+
     const svg = document.createElementNS(NS, 'svg');
     svg.setAttribute('class', 'track__wave');
-    svg.setAttribute('viewBox', `0 0 ${data.length * 3} 24`);
+    svg.setAttribute('viewBox', `0 0 ${data.length * STEEK} 24`);
     svg.setAttribute('preserveAspectRatio', 'none');
     svg.setAttribute('aria-hidden', 'true');
 
     data.forEach((v, i) => {
-        const hoog = Math.max(1.5, v ** 0.75 * 11);
+        const genormaliseerd = (v - laag) / spanwijdte;
+        const hoog = Math.max(1.6, (0.15 + genormaliseerd * 0.85) * 10.5);
         const rect = document.createElementNS(NS, 'rect');
-        rect.setAttribute('x', String(i * 3));
+        rect.setAttribute('x', String(i * STEEK));
         rect.setAttribute('y', String(12 - hoog));
-        rect.setAttribute('width', '1.7');
+        rect.setAttribute('width', String(BREED));
         rect.setAttribute('height', String(hoog * 2));
-        rect.setAttribute('rx', '0.85');
+        rect.setAttribute('rx', String(BREED / 2));
         svg.append(rect);
     });
 
