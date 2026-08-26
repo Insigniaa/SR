@@ -435,6 +435,8 @@ function renderProgress(track) {
         dom.elapsed.textContent = formatDuration(elapsed);
         dom.remaining.textContent = `-${formatDuration(total - elapsed)}`;
 
+        player?.setPosition(total, elapsed);
+
         if (elapsed >= total) clearInterval(progressTimer);
     };
 
@@ -461,7 +463,12 @@ export function renderRecentTracks(tracks) {
     }
 
     replaceChildren(dom.recent, tracks.map((track) => {
-        const search = `https://www.google.com/search?q=${encodeURIComponent(`${track.artist} ${track.title}`)}`;
+        // Bij een zenderblok is de "titel" een opsomming van artiesten en de
+        // "artiest" een programmanaam. Daar zoeken levert niets op, dus dan
+        // laten we de knop weg.
+        const zoekbaar = !track.isBlock;
+        const term = encodeURIComponent(`${track.artist} ${track.title}`);
+        const search = `https://open.spotify.com/search/${term}`;
 
         return el('li', { class: 'track' }, [
             el('span', { class: 'track__time mono', text: formatClock(track.startedAt) }),
@@ -479,13 +486,16 @@ export function renderRecentTracks(tracks) {
                 el('p', { class: 'track__title', text: track.title }),
                 el('p', { class: 'track__artist', text: track.artist })
             ]),
-            el('a', {
-                class: 'track__action',
-                href: search,
-                target: '_blank',
-                rel: 'noopener noreferrer',
-                'aria-label': `Zoek ${track.title} van ${track.artist}`
-            }, [icon('i-search')])
+            zoekbaar
+                ? el('a', {
+                    class: 'track__action',
+                    href: search,
+                    target: '_blank',
+                    rel: 'noopener noreferrer',
+                    'aria-label': `Zoek ${track.title} van ${track.artist} op Spotify`,
+                    title: 'Zoek op Spotify'
+                }, [icon('i-search')])
+                : el('span', { class: 'track__action-leeg', 'aria-hidden': 'true' })
         ]);
     }));
 }
@@ -563,7 +573,8 @@ export function renderSchedule({ current, upcoming }) {
             el('article', { class: 'next-show' }, [
                 el('p', { class: 'next-show__when', text: whenLabel(show) }),
                 el('h4', { class: 'next-show__name', text: show.name }),
-                el('p', { class: 'next-show__time mono', text: formatShowTime(show.hour, show.endHour) })
+                el('p', { class: 'next-show__time mono', text: formatShowTime(show.hour, show.endHour) }),
+                show.description && el('p', { class: 'next-show__text', text: show.description })
             ])
         )));
     }

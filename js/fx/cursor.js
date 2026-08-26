@@ -43,6 +43,10 @@ export function initCursor() {
         const labelled = event.target.closest?.('[data-cursor-label]');
         const interactive = event.target.closest?.(INTERACTIVE);
 
+        // Boven een schuifregelaar wint de systeemcursor: daar moet je precies
+        // kunnen mikken en is een zwevende ring alleen maar in de weg.
+        root.classList.toggle('on-control', Boolean(event.target.closest?.('input[type="range"]')));
+
         if (labelled) {
             label.textContent = labelled.dataset.cursorLabel || '';
             state.scaleTarget = 3.1;

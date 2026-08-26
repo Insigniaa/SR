@@ -14,7 +14,7 @@
  * offline blijft werken via de cache.
  */
 
-const VERSION = 'v15';
+const VERSION = 'v17';
 const SHELL_CACHE = `super-radio-shell-${VERSION}`;
 const RUNTIME_CACHE = `super-radio-runtime-${VERSION}`;
 const OFFLINE_URL = 'offline.html';
@@ -34,6 +34,7 @@ const SHELL_ASSETS = [
     'js/ui.js',
     'js/ambient.js',
     'js/status.js',
+    'js/extras.js',
     'js/fx/index.js',
     'js/fx/core.js',
     'js/fx/gl.js',

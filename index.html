@@ -46,9 +46,9 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="preload" as="style"
-        href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800;900&family=IBM+Plex+Mono:wght@400;500&display=swap">
+        href="https://fonts.googleapis.com/css2?family=Archivo:wght@400..900&family=IBM+Plex+Mono:wght@400;500&display=swap">
     <link rel="stylesheet"
-        href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800;900&family=IBM+Plex+Mono:wght@400;500&display=swap">
+        href="https://fonts.googleapis.com/css2?family=Archivo:wght@400..900&family=IBM+Plex+Mono:wght@400;500&display=swap">
 
     <link rel="preconnect" href="https://api.laut.fm">
     <link rel="preconnect" href="https://stream.laut.fm">
@@ -172,6 +172,24 @@
                 <path d="M15.6 15.6L20 20" />
             </g>
         </symbol>
+        <symbol id="i-install" viewBox="0 0 24 24">
+            <g fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 3.6v11M7.8 10.4L12 14.6l4.2-4.2" />
+                <path d="M4.4 16.2v2.2a2 2 0 0 0 2 2h11.2a2 2 0 0 0 2-2v-2.2" />
+            </g>
+        </symbol>
+        <symbol id="i-timer" viewBox="0 0 24 24">
+            <g fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="13.4" r="7.6" />
+                <path d="M12 9.6v4l2.4 1.4M9.4 2.8h5.2M18.6 6.2l1.6-1.6" />
+            </g>
+        </symbol>
+        <symbol id="i-keyboard" viewBox="0 0 24 24">
+            <g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round">
+                <rect x="2.6" y="6" width="18.8" height="12" rx="2.4" />
+                <path d="M6.4 9.6h.01M9.8 9.6h.01M13.2 9.6h.01M16.6 9.6h.01M6.4 12.8h.01M9.8 12.8h.01M13.2 12.8h.01M16.6 12.8h.01M8.4 15.8h7.2" />
+            </g>
+        </symbol>
         <symbol id="i-wifi-off" viewBox="0 0 24 24">
             <g fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round">
                 <path d="M2.6 8.6a15.6 15.6 0 0 1 5-3M10.4 4.6a15.6 15.6 0 0 1 11 4M5.8 12.2a10.6 10.6 0 0 1 2.8-1.8M14 10.2a10.6 10.6 0 0 1 4.2 2M9.2 15.8a5.6 5.6 0 0 1 5.6 0M3 3l18 18" />
@@ -222,6 +240,11 @@
             </nav>
 
             <div class="topbar__actions">
+                <button class="ghost-btn" id="install-btn" type="button" hidden
+                    aria-label="Super Radio installeren als app" title="Installeren als app">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-install" /></svg>
+                </button>
+
                 <button class="ghost-btn" id="theme-toggle" type="button" aria-label="Wissel naar licht thema">
                     <svg class="only-dark" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-sun" /></svg>
                     <svg class="only-light" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-moon" /></svg>
@@ -296,10 +319,26 @@
                             <svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-share" /></svg>
                             <span>Delen</span>
                         </button>
+
+                        <div class="sleep">
+                            <button class="ghost-btn ghost-btn--label" type="button" id="sleep-btn"
+                                aria-expanded="false" aria-controls="sleep-menu">
+                                <svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-timer" /></svg>
+                                <span id="sleep-label">Slaaptimer</span>
+                            </button>
+                            <div class="sleep__menu" id="sleep-menu" hidden>
+                                <button type="button" data-sleep="15">15 minuten</button>
+                                <button type="button" data-sleep="30">30 minuten</button>
+                                <button type="button" data-sleep="60">1 uur</button>
+                                <button type="button" data-sleep="90">1,5 uur</button>
+                                <button type="button" data-sleep="0" class="sleep__off">Uitzetten</button>
+                            </div>
+                        </div>
                     </div>
 
                     <p class="studio__hint">
                         Tip: druk op <kbd>spatie</kbd> om te starten of te pauzeren.
+                        <button type="button" class="linkish" id="keys-btn">Alle sneltoetsen</button>
                     </p>
                 </div>
 
@@ -465,6 +504,27 @@
             </div>
         </div>
     </div>
+
+    <!-- ============================== Sneltoetsen ============================== -->
+    <dialog class="keys" id="keys-dialog" aria-labelledby="keys-title">
+        <div class="keys__head">
+            <h2 id="keys-title">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-keyboard" /></svg>
+                Sneltoetsen
+            </h2>
+            <button type="button" class="ghost-btn" id="keys-close" aria-label="Sluiten">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-close" /></svg>
+            </button>
+        </div>
+        <dl class="keys__list">
+            <dt><kbd>spatie</kbd> <kbd>K</kbd></dt><dd>Afspelen of pauzeren</dd>
+            <dt><kbd>&uarr;</kbd> <kbd>&darr;</kbd></dt><dd>Volume omhoog of omlaag</dd>
+            <dt><kbd>M</kbd></dt><dd>Geluid dempen</dd>
+            <dt><kbd>S</kbd></dt><dd>Slaaptimer openen</dd>
+            <dt><kbd>?</kbd></dt><dd>Dit venster</dd>
+            <dt><kbd>esc</kbd></dt><dd>Sluiten</dd>
+        </dl>
+    </dialog>
 
     <!-- ============================== Toasts ============================== -->
     <div class="toasts" id="toasts" role="status" aria-live="polite" aria-atomic="false"></div>

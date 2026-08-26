@@ -6,7 +6,7 @@
 import {
     API_BASE, STATION, SCHEDULE_TTL,
     ARTWORK_API, ARTWORK_SIZE, ARTWORK_MIN_GAP_MS, ARTWORK_CACHE_KEY, ARTWORK_CACHE_MAX,
-    SHOW_IMAGES, NEWS_FEED, NEWS_SOURCES, DEFAULT_COVER
+    SHOW_IMAGES, SHOW_DESCRIPTIONS, NEWS_FEED, NEWS_SOURCES, DEFAULT_COVER
 } from './config.js';
 import {
     normalizeTrack, textOf, isStationTrack, cleanForSearch,
@@ -163,31 +163,52 @@ export async function getShows(upcomingLimit = 3) {
         const elapsed = (nowMinutes < startMinutes ? nowMinutes + 1440 : nowMinutes) - startMinutes;
         current.progress = Math.min(100, Math.max(0, (elapsed / (endMinutes - startMinutes)) * 100));
         current.image = showImage(current.name);
+        // Eigen tekst alleen als de zender er zelf geen heeft ingevuld.
+        current.description = current.description || showDescription(current.name) || '';
     }
 
     const upcoming = schedule
         .filter((show) => show !== current)
-        .map((show) => ({ ...show, inMinutes: minutesUntil(show, now) }))
+        .map((show) => ({
+            ...show,
+            inMinutes: minutesUntil(show, now),
+            image: showImage(show.name),
+            description: show.description || showDescription(show.name) || ''
+        }))
         .sort((a, b) => a.inMinutes - b.inMinutes)
         .slice(0, upcomingLimit);
 
     return { current, upcoming };
 }
 
-/** Sleutels op lengte gesorteerd, met een voorgecompileerde woordgrens-regex. */
-const SHOW_MATCHERS = Object.entries(SHOW_IMAGES)
-    .map(([key, path]) => ({
-        key,
-        path,
-        // Voor en achter de sleutel mag geen letter of cijfer staan, zodat
-        // 'night' wel "night shift" pakt maar niet "knight", en '90s' wel
-        // "the 90s" maar niet "1990s".
-        pattern: new RegExp(
-            `(?:^|[^a-z0-9])${key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?:[^a-z0-9]|$)`,
-            'i'
-        )
-    }))
-    .sort((a, b) => b.key.length - a.key.length);
+/**
+ * Bouwt een zoeker over een tabel met programmanamen.
+ *
+ * Sleutels op lengte gesorteerd zodat de meest specifieke wint, en elke
+ * sleutel als woordgrens-regex zodat 'night' wel "Night Shift" pakt maar niet
+ * "Robert Knight".
+ */
+function buildMatchers(table) {
+    return Object.entries(table)
+        .map(([key, value]) => ({
+            key,
+            value,
+            pattern: new RegExp(
+                `(?:^|[^a-z0-9])${key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?:[^a-z0-9]|$)`,
+                'i'
+            )
+        }))
+        .sort((a, b) => b.key.length - a.key.length);
+}
+
+function lookup(matchers, names) {
+    for (const matcher of matchers) {
+        for (const name of names) {
+            if (name && matcher.pattern.test(String(name))) return matcher.value;
+        }
+    }
+    return null;
+}
 
 /**
  * Zoekt een eigen hoesje bij een programma- of tracknaam.
@@ -206,12 +227,18 @@ const SHOW_MATCHERS = Object.entries(SHOW_IMAGES)
  * @returns {string|null}
  */
 export function showImage(...names) {
-    for (const matcher of SHOW_MATCHERS) {
-        for (const name of names) {
-            if (name && matcher.pattern.test(String(name))) return matcher.path;
-        }
-    }
-    return null;
+    return lookup(IMAGE_MATCHERS, names);
+}
+
+const IMAGE_MATCHERS = buildMatchers(SHOW_IMAGES);
+const DESCRIPTION_MATCHERS = buildMatchers(SHOW_DESCRIPTIONS);
+
+/**
+ * Korte omschrijving bij een programmanaam, uit SHOW_DESCRIPTIONS.
+ * Alleen een terugval: wat laut.fm zelf levert gaat altijd voor.
+ */
+export function showDescription(...names) {
+    return lookup(DESCRIPTION_MATCHERS, names);
 }
 
 /**

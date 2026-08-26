@@ -47,6 +47,14 @@ export class RadioPlayer extends EventTarget {
     play() {
         this.intent = true;
         this.#clearRetry();
+
+        // Een lopende slaap-fade afbreken en het volume herstellen.
+        if (this.fadeTimer) {
+            clearInterval(this.fadeTimer);
+            this.fadeTimer = null;
+            this.audio.volume = this.volume / 100;
+        }
+
         this.#emit('intentchange');
 
         const attempt = this.audio.play();
@@ -118,6 +126,66 @@ export class RadioPlayer extends EventTarget {
                 artwork
             });
         } catch { /* sommige browsers struikelen over externe artwork-URL's */ }
+    }
+
+    /**
+     * Zachtjes uitfaden en dan pauzeren. Voor de slaaptimer: abrupt stilvallen
+     * is precies wat je niet wil als iemand ligt te doezelen.
+     *
+     * Het opgeslagen volume blijft ongemoeid; alleen het element wordt
+     * geregeld, en na afloop weer teruggezet. Zo start de volgende keer
+     * gewoon op het oude niveau.
+     *
+     * @param {number} seconden duur van de fade
+     */
+    fadeOutAndPause(seconden = 10) {
+        return new Promise((resolve) => {
+            if (!this.isPlaying) {
+                this.pause();
+                resolve();
+                return;
+            }
+
+            const start = this.audio.volume;
+            const stappen = Math.max(1, Math.round(seconden * 10));
+            let stap = 0;
+
+            clearInterval(this.fadeTimer);
+            this.fadeTimer = setInterval(() => {
+                stap += 1;
+                this.audio.volume = Math.max(0, start * (1 - stap / stappen));
+
+                if (stap >= stappen) {
+                    clearInterval(this.fadeTimer);
+                    this.fadeTimer = null;
+                    this.pause();
+                    this.audio.volume = this.volume / 100;   // terug naar normaal
+                    resolve();
+                }
+            }, 100);
+        });
+    }
+
+    /**
+     * Geeft de voortgang van het huidige nummer door aan het systeem, zodat
+     * het vergrendelscherm en de mediatoetsen een balk laten zien.
+     *
+     * @param {number} duration totale lengte in seconden
+     * @param {number} position verstreken tijd in seconden
+     */
+    setPosition(duration, position) {
+        if (!('mediaSession' in navigator) || !navigator.mediaSession.setPositionState) return;
+        if (!Number.isFinite(duration) || duration <= 0) return;
+
+        try {
+            navigator.mediaSession.setPositionState({
+                duration,
+                position: clamp(position, 0, duration),
+                playbackRate: 1
+            });
+        } catch {
+            // Sommige browsers weigeren dit voor een livestream; dan gewoon niets.
+        }
     }
 
     /* --------------------------------------------------------------- intern */

@@ -11,7 +11,6 @@
 
 export const clamp = (v, min, max) => Math.min(max, Math.max(min, v));
 export const lerp = (a, b, t) => a + (b - a) * t;
-export const inverseLerp = (a, b, v) => (b - a === 0 ? 0 : (v - a) / (b - a));
 
 /**
  * Framerate-onafhankelijke interpolatie. Met een gewone lerp beweegt alles op

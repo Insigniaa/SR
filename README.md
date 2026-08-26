@@ -29,6 +29,7 @@ js/
   ui.js             Alle rendering
   main.js           Opstarten en de verversronde
   status.js         Herlaadknop voor de statuspagina's
+  extras.js         Installeerknop, slaaptimer, sneltoetsenvenster
   fx/               Effectenlaag, zie hieronder
 images/             Iconen, hoesjes en de OG-kaart (gegenereerd)
 ```
@@ -149,10 +150,15 @@ Apache. Op Netlify of Cloudflare Pages heb je in plaats daarvan een
 | `spatie` of `k` | Afspelen / pauzeren |
 | `↑` / `↓` | Volume ±5 |
 | `m` | Dempen |
-| `esc` | Mobiel menu sluiten |
+| `s` | Slaaptimer openen |
+| `?` | Overzicht van sneltoetsen |
+| `esc` | Sluiten |
 
 ## Onderhoud
 
+- Programmateksten staan in `SHOW_DESCRIPTIONS` (`js/config.js`). Ze zijn een
+  terugval: vult iemand het beschrijvingsveld in laut.fm, dan wint dat. Pas ze
+  gerust aan, het is gewoon websitetekst.
 - Nieuw programma toegevoegd? Zet de naam en een hoesje in `SHOW_IMAGES`
   (`js/config.js`). De sleutel is kleine letters en mag een deel van de naam
   zijn, maar `showImage()` matcht op **woordgrenzen** — `night` pakt dus wel

@@ -15,6 +15,7 @@ import {
     renderSchedule, renderNews, renderShowLabel, toast
 } from './ui.js';
 import { initFx } from './fx/index.js';
+import { initExtras } from './extras.js';
 
 let player;
 let ambient;
@@ -151,9 +152,14 @@ async function labelStationBlock(track) {
     // Staat er al een programmanaam in het artiestveld ("Rock Classics +"),
     // dan hoeft alleen de plus eraf.
     if (!isStationTrack(track.artist)) {
-        if (showImage(track.artist)) track.artist = tidy(track.artist);
+        if (showImage(track.artist)) {
+            track.artist = tidy(track.artist);
+            track.isBlock = true;
+        }
         return;
     }
+
+    track.isBlock = true;
 
     const name = tidy((await showAt(track.startedAt || new Date()))?.name);
     if (!name) return;
@@ -176,6 +182,7 @@ async function boot() {
 
     player = new RadioPlayer();
     initUI(player);
+    initExtras(player);
     preloader.set(0.2);
 
     ambient = new Ambient();
