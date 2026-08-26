@@ -100,8 +100,12 @@ async function refreshNowPlaying() {
     // De geblurde CSS-lagen zijn overbodig zodra de shader draait, maar de
     // kleuren uit de hoes zijn dat nooit: die voeden de hele interface.
     ambient?.setLayersEnabled(!fx?.hasGl);
-    ambient?.apply(track.image);
     fx?.setArtwork(track.image);
+
+    // Bewust afwachten: applyPalette() zet --accent, en het laadscherm gebruikt
+    // die kleur. Zouden we hier doorlopen, dan klapt de intro open vóórdat de
+    // kleuren er zijn en zie je alsnog de sprong van oranje naar de hoeskleur.
+    await ambient?.apply(track.image);
 
     // Vanaf nu horen de metingen bij dit nummer.
     memory?.setTrack({

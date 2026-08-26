@@ -47,7 +47,11 @@ export function initStage(player) {
         spectrum.start();
 
         try {
-            await stage.requestFullscreen?.();
+            // Bewust de hele pagina op volledig scherm, niet alleen de overlay.
+            // Vraag je het aan het element zelf, dan tekent de browser
+            // uitsluitend dat element en zijn kinderen - en verdwijnt de
+            // WebGL-achtergrond, want die staat er buiten.
+            await document.documentElement.requestFullscreen?.();
         } catch {
             // Geen volledig scherm (bijvoorbeeld op iOS): de overlay vult
             // het venster dan gewoon zelf.

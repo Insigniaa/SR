@@ -370,88 +370,6 @@ kbd {
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
-/* ------------------------------------------------------------- boot screen */
-.boot {
-    position: fixed;
-    inset: 0;
-    z-index: 150;
-    display: grid;
-    place-items: center;
-    background: var(--bg);
-    transition: opacity .55s var(--ease), visibility .55s;
-}
-
-.boot.is-done {
-    opacity: 0;
-    visibility: hidden;
-}
-
-.boot__inner {
-    display: grid;
-    justify-items: center;
-    gap: 1.15rem;
-    padding: 2rem;
-    text-align: center;
-}
-
-.boot__mark {
-    display: grid;
-    place-items: center;
-    width: 66px;
-    height: 66px;
-    border-radius: 20px;
-    color: #fff;
-    background: linear-gradient(145deg, var(--brand-soft), var(--brand-deep));
-    box-shadow: 0 18px 40px -14px color-mix(in srgb, var(--brand) 70%, transparent);
-}
-
-.boot__mark svg {
-    width: 34px;
-    height: 34px;
-    animation: pulse-mark 2.1s var(--ease) infinite;
-}
-
-.boot__word {
-    font-size: 1.6rem;
-    font-weight: 900;
-    letter-spacing: -.045em;
-}
-
-.boot__bar {
-    width: 190px;
-    height: 3px;
-    overflow: hidden;
-    border-radius: 99px;
-    background: var(--surface-2);
-}
-
-.boot__bar span {
-    display: block;
-    width: 40%;
-    height: 100%;
-    border-radius: inherit;
-    background: var(--brand);
-    animation: boot-slide 1.25s var(--ease) infinite;
-}
-
-.boot__status {
-    font-family: var(--mono);
-    font-size: .76rem;
-    letter-spacing: .04em;
-    color: var(--text-3);
-    text-transform: uppercase;
-}
-
-@keyframes boot-slide {
-    0% { transform: translateX(-110%); }
-    100% { transform: translateX(360%); }
-}
-
-@keyframes pulse-mark {
-    0%, 100% { transform: scale(1); opacity: 1; }
-    50% { transform: scale(.88); opacity: .7; }
-}
-
 /* ----------------------------------------------------------------- top bar */
 .topbar {
     position: sticky;
@@ -498,8 +416,8 @@ kbd {
     height: 34px;
     border-radius: 11px;
     color: #fff;
-    background: linear-gradient(145deg, var(--brand-soft), var(--brand-deep));
-    box-shadow: 0 6px 18px -8px color-mix(in srgb, var(--brand) 80%, transparent);
+    background: linear-gradient(145deg, var(--accent-soft), var(--accent-deep));
+    box-shadow: 0 6px 18px -8px color-mix(in srgb, var(--accent) 80%, transparent);
     transition: transform var(--t);
 }
 
@@ -521,7 +439,7 @@ kbd {
 
 .brand__word em {
     font-style: normal;
-    color: var(--brand);
+    color: var(--accent);
 }
 
 .mainnav {
@@ -1561,7 +1479,7 @@ kbd {
 
 .footer__word em {
     font-style: normal;
-    color: var(--brand);
+    color: var(--accent);
 }
 
 .footer__tag {
@@ -2032,12 +1950,15 @@ kbd {
     transition: clip-path 1.05s cubic-bezier(.76, 0, .24, 1);
 }
 
+/* Volgt --accent, niet --brand: zodra de hoes geladen is verschuift het
+   laadscherm naar dezelfde kleuren als de site die eronder wacht. Zonder dat
+   zie je eerst oranje en daarna abrupt iets heel anders. */
 .intro__panel {
     position: absolute;
     inset: 0;
     background:
-        radial-gradient(70% 60% at 50% 45%, color-mix(in srgb, var(--brand) 22%, transparent), transparent 70%);
-    opacity: .8;
+        radial-gradient(70% 60% at 50% 45%, color-mix(in srgb, var(--accent) 26%, transparent), transparent 70%);
+    opacity: .85;
 }
 
 .intro__inner {
@@ -2056,8 +1977,8 @@ kbd {
     height: 62px;
     border-radius: 20px;
     color: #fff;
-    background: linear-gradient(145deg, var(--brand-soft), var(--brand-deep));
-    box-shadow: 0 20px 50px -16px color-mix(in srgb, var(--brand) 80%, transparent);
+    background: linear-gradient(145deg, var(--accent-soft), var(--accent-deep));
+    box-shadow: 0 20px 50px -16px color-mix(in srgb, var(--accent) 80%, transparent);
     animation: intro-mark 2.4s var(--ease) infinite;
 }
 
@@ -2076,7 +1997,7 @@ kbd {
 
 .intro__word em {
     font-style: normal;
-    color: var(--brand);
+    color: var(--accent);
 }
 
 .intro__tag {
@@ -2108,7 +2029,7 @@ kbd {
 .intro__bar span {
     display: block;
     height: 100%;
-    background: var(--brand);
+    background: var(--accent);
     transform-origin: left;
     transform: scaleX(0);
 }
@@ -2708,7 +2629,8 @@ kbd {
     z-index: 250;
     display: grid;
     grid-template-rows: 1fr auto auto;
-    background: var(--bg);
+    /* Doorzichtig, zodat de bewegende achtergrond eronder zichtbaar blijft. */
+    background: transparent;
     animation: stage-in .4s var(--ease-out);
 }
 
@@ -2716,19 +2638,28 @@ kbd {
     display: none;
 }
 
-/* De achtergrondshader loopt door achter de kijkmodus. */
+/* Alleen een sluier voor leesbaarheid: donker aan de randen, open in het
+   midden zodat het kleurenveld doorkomt. */
 .stage::before {
     content: "";
     position: absolute;
     inset: 0;
     background:
-        radial-gradient(80% 70% at 50% 30%, color-mix(in srgb, var(--dyn-1) 40%, transparent), transparent 70%),
-        var(--bg);
-    opacity: .9;
+        radial-gradient(75% 65% at 50% 42%, transparent, color-mix(in srgb, var(--bg) 72%, transparent) 100%),
+        linear-gradient(180deg, color-mix(in srgb, var(--bg) 55%, transparent), transparent 22%,
+                        transparent 72%, color-mix(in srgb, var(--bg) 80%, transparent));
+    pointer-events: none;
 }
 
 body.stage-open {
     overflow: hidden;
+}
+
+/* De sfeerlaag staat normaal achter de pagina-inhoud (z-index -1). In de
+   kijkmodus tillen we hem op tot boven die inhoud maar onder de overlay, zodat
+   hij de pagina eronder afdekt én zelf zichtbaar blijft. */
+body.stage-open .ambient {
+    z-index: 240;
 }
 
 .stage__close {

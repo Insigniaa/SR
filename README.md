@@ -63,7 +63,8 @@ twee keer zo snel gaat als op 60 Hz.
 
 De hoes van het nummer dat speelt kleurt de hele interface: play- en
 LIVE-knop, voortgangsbalken, sectie-iconen, badges, focusrand, cursor,
-selectie. Het logo en de intro blijven bewust merkrood als vast anker.
+selectie, het logo, het woordmerk en het laadscherm. Het merkrood uit
+`--brand` is nog uitsluitend de terugval zolang er geen hoes geladen is.
 
 Twee soorten tokens, gezet door `applyPalette()` in `js/ambient.js`:
 
