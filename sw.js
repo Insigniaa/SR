@@ -3,11 +3,18 @@
  *
  * Strategie:
  *   - navigatie (HTML)   -> netwerk eerst, cache als vangnet, dan offline.html
- *   - eigen statics      -> stale-while-revalidate
+ *   - eigen code (js/css)-> netwerk eerst, cache als vangnet
+ *   - eigen media/fonts  -> stale-while-revalidate
  *   - stream en API      -> nooit aanraken (live data hoort niet in een cache)
+ *
+ * Code staat bewust op netwerk-eerst. Met stale-while-revalidate kreeg een
+ * terugkerende bezoeker na een deploy eerst de oude main.js te zien en pas bij
+ * de volgende paginaweergave de nieuwe; een half bijgewerkte site ziet eruit
+ * als een kapotte site. De bestanden zijn klein, dus dat kost vrijwel niets, en
+ * offline blijft werken via de cache.
  */
 
-const VERSION = 'v11';
+const VERSION = 'v12';
 const SHELL_CACHE = `super-radio-shell-${VERSION}`;
 const RUNTIME_CACHE = `super-radio-runtime-${VERSION}`;
 const OFFLINE_URL = 'offline.html';
@@ -104,10 +111,35 @@ self.addEventListener('fetch', (event) => {
     const sameOrigin = url.origin === self.location.origin;
     const isFont = url.hostname.endsWith('fonts.googleapis.com') || url.hostname.endsWith('fonts.gstatic.com');
 
-    if (sameOrigin || isFont) {
+    if (sameOrigin) {
+        const isCode = /\.(?:js|css|json)$/.test(url.pathname);
+        event.respondWith(isCode ? networkFirst(request) : staleWhileRevalidate(request));
+        return;
+    }
+
+    if (isFont) {
         event.respondWith(staleWhileRevalidate(request));
     }
 });
+
+/**
+ * Netwerk eerst, met een korte tijdslimiet zodat een trage verbinding niet
+ * eindeloos blijft hangen; daarna alsnog de cache.
+ */
+async function networkFirst(request, timeout = 4_000) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeout);
+
+    try {
+        const response = await fetch(request, { signal: controller.signal });
+        if (response.ok) void updateCache(RUNTIME_CACHE, request, response.clone());
+        return response;
+    } catch {
+        return (await caches.match(request)) || offlineFallback();
+    } finally {
+        clearTimeout(timer);
+    }
+}
 
 async function handleNavigation(event) {
     try {
