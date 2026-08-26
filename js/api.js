@@ -68,12 +68,22 @@ export async function getCurrentTrack() {
     return normalizeTrack(await getJSON(stationUrl('current_song')));
 }
 
-export async function getRecentTracks(limit = 8) {
+export async function getRecentTracks(limit = 10) {
     const raw = await getJSON(stationUrl('last_songs'));
     if (!Array.isArray(raw)) return [];
     return raw.map(normalizeTrack).filter(Boolean).slice(0, limit);
 }
 
+/**
+ * Artiesten die hierna langskomen.
+ *
+ * Let op: dit endpoint is bedoeld voor zenders die nummer voor nummer
+ * programmeren. Super Radio zendt in blokken uit, dus geeft laut.fm hier
+ * meestal alleen de naam van het blok terug — "Super - Radio",
+ * "Rock Classics +". Dat zijn geen artiesten en dus niets om een luisteraar
+ * te tonen; die worden eruit gefilterd. Blijft er niets over, dan verbergt
+ * ui.js de kolom.
+ */
 export async function getUpcomingArtists(limit = 4) {
     const raw = await getJSON(stationUrl('next_artists'));
     if (!Array.isArray(raw)) return [];
@@ -84,6 +94,8 @@ export async function getUpcomingArtists(limit = 4) {
             image: safeUrl(entry?.artist?.image || entry?.image)
         }))
         .filter((item) => item.name)
+        // Zenderaliassen en programmanamen zijn geen artiesten.
+        .filter((item) => !isStationTrack(item.name) && !showImage(item.name))
         .slice(0, limit);
 }
 
@@ -212,10 +224,21 @@ export function showImage(...names) {
  * @param {Date} [when] moment om op te zoeken; standaard nu
  */
 export async function showImageAt(when = new Date()) {
+    return (await showAt(when))?.image ?? null;
+}
+
+/**
+ * Het programma dat op een bepaald moment uitzendt.
+ *
+ * @param {Date} [when]
+ * @returns {Promise<{name: string, image: string|null}|null>}
+ */
+export async function showAt(when = new Date()) {
     try {
         const schedule = await getSchedule();
         const show = schedule.find((entry) => isShowLive(entry, when));
-        return show ? showImage(show.name) : null;
+        if (!show) return null;
+        return { name: show.name.trim(), image: showImage(show.name) };
     } catch {
         return null;
     }

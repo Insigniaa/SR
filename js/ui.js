@@ -494,8 +494,18 @@ export function renderUpcoming(artists) {
     if (!dom.upcoming) return;
     dom.upcoming.setAttribute('aria-busy', 'false');
 
-    if (!artists?.length) {
-        replaceChildren(dom.upcoming, emptyState('De zender heeft nog niets aangekondigd.'));
+    // Zonder echte artiesten heeft deze kolom niets te vertellen. Dan hem
+    // verbergen en de speellijst de volle breedte geven, in plaats van een
+    // kop met een excuus eronder.
+    const column = dom.upcoming.closest('.playlist__col');
+    const grid = dom.upcoming.closest('.playlist');
+    const heeftInhoud = Boolean(artists?.length);
+
+    if (column) column.hidden = !heeftInhoud;
+    if (grid) grid.classList.toggle('is-single', !heeftInhoud);
+
+    if (!heeftInhoud) {
+        replaceChildren(dom.upcoming, []);
         return;
     }
 

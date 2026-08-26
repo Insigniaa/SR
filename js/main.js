@@ -4,10 +4,11 @@
 
 import { POLL_TRACK, POLL_SCHEDULE, POLL_NEWS, DEFAULT_COVER } from './config.js';
 import { RadioPlayer } from './player.js';
+import { isStationTrack } from './utils.js';
 import { Ambient, Spectrum } from './ambient.js';
 import {
     getCurrentTrack, getRecentTracks, getUpcomingArtists,
-    getShows, getArtwork, getNews
+    getShows, getArtwork, getNews, showAt, showImage
 } from './api.js';
 import {
     initUI, uiHooks, renderCurrentTrack, renderRecentTracks, renderUpcoming,
@@ -87,6 +88,7 @@ async function refreshNowPlaying() {
     lastTrackKey = track.key;
 
     track.image = (await getArtwork(track.title, track.artist, track.startedAt)) || DEFAULT_COVER;
+    await labelStationBlock(track);
     renderCurrentTrack(track);
 
     // De sfeerlaag in CSS is het vangnet; draait WebGL, dan neemt die het over.
@@ -109,10 +111,14 @@ async function refreshPlaylists() {
     // zit alles in de cache en is de tweede render meteen raak.
     renderRecentTracks(tracks);
 
-    const enriched = await Promise.all(tracks.map(async (track) => ({
-        ...track,
-        image: (await getArtwork(track.title, track.artist, track.startedAt)) || DEFAULT_COVER
-    })));
+    const enriched = await Promise.all(tracks.map(async (track) => {
+        const copy = {
+            ...track,
+            image: (await getArtwork(track.title, track.artist, track.startedAt)) || DEFAULT_COVER
+        };
+        await labelStationBlock(copy);
+        return copy;
+    }));
 
     renderRecentTracks(enriched);
 }
@@ -125,6 +131,35 @@ async function refreshSchedule() {
 
 async function refreshNews() {
     renderNews(await getNews());
+}
+
+/**
+ * Vervangt een artiestveld dat geen artiest is door de programmanaam.
+ *
+ * laut.fm zet bij een uitzendblok "Super - Radio" of "Rock Classics +" in het
+ * artiestveld. Onder een titel als "Ferry Corsten, Sweetbox, ..." staat dan
+ * "Super - Radio", wat een luisteraar niets zegt. Het rooster weet welk
+ * programma er op dat moment liep; die naam is wél informatief en sluit aan
+ * op het hoesje dat er al bij staat.
+ */
+async function labelStationBlock(track) {
+    // De zender hangt er een " +" achter bij compilatieblokken.
+    const tidy = (name) => String(name || '').replace(/\s*\+\s*$/, '').replace(/\s+/g, ' ').trim();
+
+    // Staat er al een programmanaam in het artiestveld ("Rock Classics +"),
+    // dan hoeft alleen de plus eraf.
+    if (!isStationTrack(track.artist)) {
+        if (showImage(track.artist)) track.artist = tidy(track.artist);
+        return;
+    }
+
+    const name = tidy((await showAt(track.startedAt || new Date()))?.name);
+    if (!name) return;
+
+    // Is de titel al de programmanaam, dan voegt de artiestregel niets toe.
+    track.artist = name.toLowerCase() === String(track.title).trim().toLowerCase()
+        ? 'Super Radio'
+        : name;
 }
 
 /* ================================================================== start */

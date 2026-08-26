@@ -1064,6 +1064,11 @@ kbd {
     align-items: start;
 }
 
+/* Geen zinnige "komt eraan"-data: de speellijst krijgt de volle breedte. */
+.playlist.is-single {
+    grid-template-columns: minmax(0, 1fr);
+}
+
 /* --- tracklijst --- */
 .tracklist {
     display: grid;
