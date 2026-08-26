@@ -172,6 +172,11 @@
                 <path d="M15.6 15.6L20 20" />
             </g>
         </symbol>
+        <symbol id="i-expand" viewBox="0 0 24 24">
+            <g fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M9 3.6H3.6V9M15 3.6h5.4V9M9 20.4H3.6V15M15 20.4h5.4V15" />
+            </g>
+        </symbol>
         <symbol id="i-install" viewBox="0 0 24 24">
             <g fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M12 3.6v11M7.8 10.4L12 14.6l4.2-4.2" />
@@ -320,6 +325,11 @@
                             <span>Delen</span>
                         </button>
 
+                        <button class="ghost-btn" type="button" id="stage-btn"
+                            aria-label="Kijkmodus openen" title="Kijkmodus">
+                            <svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-expand" /></svg>
+                        </button>
+
                         <div class="sleep">
                             <button class="ghost-btn ghost-btn--label" type="button" id="sleep-btn"
                                 aria-expanded="false" aria-controls="sleep-menu">
@@ -387,6 +397,8 @@
                     <div class="playlist__col">
                         <h3 class="col-title">Zojuist gedraaid</h3>
                         <ol class="tracklist" id="recent-list" aria-busy="true">
+                            <li class="tracklist__skeleton"></li>
+                            <li class="tracklist__skeleton"></li>
                             <li class="tracklist__skeleton"></li>
                             <li class="tracklist__skeleton"></li>
                             <li class="tracklist__skeleton"></li>
@@ -505,6 +517,31 @@
         </div>
     </div>
 
+    <!-- ============================== Kijkmodus ============================== -->
+    <div class="stage" id="stage" hidden aria-label="Kijkmodus" role="dialog" aria-modal="true">
+        <button class="stage__close ghost-btn" type="button" id="stage-close" aria-label="Kijkmodus sluiten">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-close" /></svg>
+        </button>
+
+        <div class="stage__inner">
+            <img class="stage__art" id="stage-art" src="images/default-cover.jpg" alt="">
+            <div class="stage__text">
+                <p class="stage__show mono" id="stage-show"></p>
+                <p class="stage__title" id="stage-title"></p>
+                <p class="stage__artist" id="stage-artist"></p>
+            </div>
+        </div>
+
+        <canvas class="stage__spectrum" id="stage-spectrum" aria-hidden="true"></canvas>
+
+        <div class="stage__bar">
+            <button class="stage__play" type="button" data-play-toggle aria-label="Afspelen">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-play" /></svg>
+            </button>
+            <p class="stage__hint mono">Druk op <kbd>esc</kbd> om te sluiten</p>
+        </div>
+    </div>
+
     <!-- ============================== Sneltoetsen ============================== -->
     <dialog class="keys" id="keys-dialog" aria-labelledby="keys-title">
         <div class="keys__head">
@@ -521,6 +558,7 @@
             <dt><kbd>&uarr;</kbd> <kbd>&darr;</kbd></dt><dd>Volume omhoog of omlaag</dd>
             <dt><kbd>M</kbd></dt><dd>Geluid dempen</dd>
             <dt><kbd>S</kbd></dt><dd>Slaaptimer openen</dd>
+            <dt><kbd>F</kbd></dt><dd>Kijkmodus (volledig scherm)</dd>
             <dt><kbd>?</kbd></dt><dd>Dit venster</dd>
             <dt><kbd>esc</kbd></dt><dd>Sluiten</dd>
         </dl>

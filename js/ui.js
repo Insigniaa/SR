@@ -14,6 +14,8 @@ import {
     clamp, store, prefersReducedMotion
 } from './utils.js';
 
+import { deelKaart } from './sharecard.js';
+
 const THEME_KEY = 'sr.theme';
 
 /**
@@ -31,6 +33,9 @@ export const uiHooks = {
 const dom = {};
 let player = null;
 let progressTimer = null;
+
+/** Het nummer dat nu speelt; nodig voor de deelkaart en de kijkmodus. */
+export let currentTrack = { title: '', artist: '', image: '' };
 
 export function initUI(radioPlayer) {
     player = radioPlayer;
@@ -315,25 +320,38 @@ function initKeyboard() {
 
 function initShare() {
     dom.shareBtn?.addEventListener('click', async () => {
-        const title = dom.npTitle?.textContent?.trim() || '';
-        const artist = dom.npArtist?.textContent?.trim() || '';
-        const text = title && artist
+        const { title, artist } = currentTrack;
+        const tekst = title && artist
             ? `Ik luister naar ${title} van ${artist} op Super Radio.`
             : 'Luister mee met Super Radio.';
+        const url = window.location.origin || STATION_PAGE;
 
-        const payload = { title: 'Super Radio', text, url: window.location.origin || STATION_PAGE };
+        // Eerst de afbeelding: die doet het in een appgroep veel beter dan
+        // een kale link.
+        if (title) {
+            dom.shareBtn.disabled = true;
+            const uitkomst = await deelKaart(currentTrack);
+            dom.shareBtn.disabled = false;
 
+            if (uitkomst === 'gedeeld' || uitkomst === 'geannuleerd') return;
+            if (uitkomst === 'gedownload') {
+                toast('Afbeelding opgeslagen. Klaar om te delen.');
+                return;
+            }
+        }
+
+        // Terugval: gewoon tekst en een link.
         if (navigator.share) {
             try {
-                await navigator.share(payload);
+                await navigator.share({ title: 'Super Radio', text: tekst, url });
                 return;
             } catch (error) {
-                if (error?.name === 'AbortError') return;   // gebruiker annuleerde
+                if (error?.name === 'AbortError') return;
             }
         }
 
         try {
-            await navigator.clipboard.writeText(`${text} ${payload.url}`);
+            await navigator.clipboard.writeText(`${tekst} ${url}`);
             toast('Link gekopieerd naar het klembord.');
         } catch {
             toast('Kopiëren lukte niet. Kopieer de link uit de adresbalk.');
@@ -349,6 +367,9 @@ export function renderCurrentTrack(track) {
     const title = track.title || 'Onbekend nummer';
     const artist = track.artist || 'Onbekende artiest';
     const image = track.image || DEFAULT_COVER;
+
+    currentTrack = { title, artist, image };
+    document.dispatchEvent(new CustomEvent('sr:track', { detail: currentTrack }));
 
     // Zachte afbreekpunten na komma's en slashes, zodat een opsomming als
     // "Al Jarreau,Steely Dan,Lou Rawls" netjes afbreekt in plaats van
@@ -478,8 +499,8 @@ export function renderRecentTracks(tracks) {
                 alt: '',
                 loading: 'lazy',
                 decoding: 'async',
-                width: 52,
-                height: 52,
+                width: 56,
+                height: 56,
                 onerror: (event) => { event.target.src = DEFAULT_COVER; }
             }),
             el('div', { class: 'track__body' }, [

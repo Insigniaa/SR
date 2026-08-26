@@ -229,6 +229,9 @@ export class Ambient {
  * geanimeerd patroon dat alleen de afspeelstatus weergeeft.
  */
 export class Spectrum {
+    /** Deel van de frequentiebanden dat bij 128 kbit mp3 nog signaal bevat. */
+    static NUTTIG_DEEL = 0.76;
+
     constructor(canvas) {
         this.canvas = canvas;
         this.ctx = canvas?.getContext('2d');
@@ -337,13 +340,25 @@ export class Spectrum {
             if (fft) {
                 // Logaritmisch verdelen: het gehoor werkt zo, en anders zit
                 // alle beweging in de eerste paar balkjes.
-                const van = Math.floor((fft.length - 1) * (n ** 1.7));
+                //
+                // Alleen tot NUTTIG_DEEL van de banden: de stream is 128 kbit
+                // mp3 en die kapt alles boven ongeveer 16 kHz af. Nemen we het
+                // hele bereik mee, dan staat het laatste kwart altijd stil.
+                const bruikbaar = (fft.length - 1) * Spectrum.NUTTIG_DEEL;
+                const van = Math.floor(bruikbaar * (n ** 1.7));
                 const tot = Math.max(van + 1,
-                    Math.floor((fft.length - 1) * (((i + 1) / this.bars) ** 1.7)));
+                    Math.floor(bruikbaar * (((i + 1) / this.bars) ** 1.7)));
 
                 let som = 0;
                 for (let k = van; k < tot; k += 1) som += fft[k];
-                this.targets[i] = clamp((som / (tot - van)) / 255, 0, 1);
+                const ruw = (som / (tot - van)) / 255;
+
+                // Muziek heeft van nature veel meer energie in de lage tonen.
+                // Zonder correctie staan links hoge balken en rechts een vlakke
+                // lijn. Deze kanteling tilt de hoge banden op, net als de
+                // weging in een echte spectrumanalyser; het blijft de gemeten
+                // data, alleen anders geschaald.
+                this.targets[i] = clamp(ruw * (1 + n * 2.1), 0, 1);
             } else {
                 // Terugval: drie sinussen geven een onregelmatig patroon.
                 const wave =

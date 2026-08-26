@@ -16,6 +16,7 @@ import {
 } from './ui.js';
 import { initFx } from './fx/index.js';
 import { initExtras } from './extras.js';
+import { initStage } from './stage.js';
 
 let player;
 let ambient;
@@ -183,6 +184,7 @@ async function boot() {
     player = new RadioPlayer();
     initUI(player);
     initExtras(player);
+    initStage(player);
     fx.attachPlayer(player);
     preloader.set(0.2);
 

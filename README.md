@@ -30,6 +30,8 @@ js/
   main.js           Opstarten en de verversronde
   status.js         Herlaadknop voor de statuspagina's
   extras.js         Installeerknop, slaaptimer, sneltoetsenvenster
+  stage.js          Kijkmodus op volledig scherm
+  sharecard.js      Tekent het nummer als deelbare afbeelding
   fx/               Effectenlaag, zie hieronder
 images/             Iconen, hoesjes en de OG-kaart (gegenereerd)
 ```
@@ -172,6 +174,7 @@ Apache. Op Netlify of Cloudflare Pages heb je in plaats daarvan een
 | `↑` / `↓` | Volume ±5 |
 | `m` | Dempen |
 | `s` | Slaaptimer openen |
+| `f` | Kijkmodus (volledig scherm) |
 | `?` | Overzicht van sneltoetsen |
 | `esc` | Sluiten |
 
