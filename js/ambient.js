@@ -88,7 +88,12 @@ function analyze(imageData) {
         hueDistance(c.h, primary.h) > 0.14 && hueDistance(c.h, secondary.h) > 0.1) || secondary;
 
     const toCss = (c) => `rgb(${c.r} ${c.g} ${c.b})`;
-    return { primary: toCss(primary), secondary: toCss(secondary), accent: toCss(accent) };
+    const toHsl = (c) => [c.h, c.s, c.l];
+
+    return {
+        primary: toCss(primary), secondary: toCss(secondary), accent: toCss(accent),
+        primaryHsl: toHsl(primary), secondaryHsl: toHsl(secondary)
+    };
 }
 
 function hueDistance(a, b) {
@@ -116,6 +121,59 @@ function rgbToHsl(r, g, b) {
     return [h, s, l];
 }
 
+/* ============================================================ accentkleur */
+
+const hslCss = (h, s, l) =>
+    `hsl(${(h * 360).toFixed(1)} ${(s * 100).toFixed(1)}% ${(l * 100).toFixed(1)}%)`;
+
+const isLightTheme = () => {
+    const explicit = document.documentElement.dataset.theme;
+    return explicit
+        ? explicit === 'light'
+        : window.matchMedia('(prefers-color-scheme: light)').matches;
+};
+
+/**
+ * Zet de kleuren van de hoes om in bruikbare accenttokens.
+ *
+ * De ruwe kleur uit een hoes is vaak onbruikbaar als UI-kleur: te donker, te
+ * grauw, of juist zo fel dat tekst erop wegvalt. Daarom wordt de verzadiging
+ * opgetrokken tot een minimum en de helderheid in een band geduwd die op het
+ * huidige thema leesbaar blijft - donkerder op een lichte pagina, lichter op
+ * een donkere. De tint blijft ongemoeid, want die maakt het herkenbaar.
+ */
+function applyPalette(palette) {
+    if (!palette) return;
+
+    const root = document.documentElement;
+    const light = isLightTheme();
+
+    const [h, s, l] = palette.primaryHsl;
+    const sat = clamp(Math.max(s, 0.5), 0, 0.95);
+    const lum = light ? clamp(l, 0.34, 0.48) : clamp(l, 0.55, 0.70);
+
+    root.style.setProperty('--accent', hslCss(h, sat, lum));
+    root.style.setProperty('--accent-soft', hslCss(h, sat * 0.95, clamp(lum + 0.10, 0, 0.92)));
+    root.style.setProperty('--accent-deep', hslCss(h, Math.min(sat * 1.05, 1), clamp(lum - 0.16, 0.10, 1)));
+
+    // Tweede tint voor verlopen. Ligt de secundaire kleur te dicht bij de
+    // eerste, dan schuiven we hem op zodat het verloop zichtbaar blijft.
+    let [h2, s2, l2] = palette.secondaryHsl;
+    if (Math.min(Math.abs(h2 - h), 1 - Math.abs(h2 - h)) < 0.05) h2 = (h + 0.09) % 1;
+
+    root.style.setProperty('--accent-2', hslCss(
+        h2,
+        clamp(Math.max(s2, 0.45), 0, 0.95),
+        light ? clamp(l2, 0.40, 0.56) : clamp(l2, 0.58, 0.74)
+    ));
+
+    // Ruwe kleuren blijven voor sfeer: gloed en spectrum mogen wel donker of
+    // bleek zijn, daar staat geen tekst op.
+    root.style.setProperty('--dyn-1', palette.primary);
+    root.style.setProperty('--dyn-2', palette.secondary);
+    root.style.setProperty('--dyn-3', palette.accent);
+}
+
 /* ========================================================= achtergrondlaag */
 
 export class Ambient {
@@ -123,6 +181,22 @@ export class Ambient {
         this.layers = root ? [...root.querySelectorAll('.ambient__layer')] : [];
         this.active = 0;
         this.current = null;
+        this.palette = null;
+
+        // Alleen de geblurde afbeeldinglagen zijn overbodig als de shader
+        // draait; de kleuren zijn dat nooit.
+        this.useLayers = true;
+
+        // Bij een themawissel moet de accentkleur opnieuw genormaliseerd
+        // worden: wat leesbaar is op zwart is dat niet op crème.
+        const repaint = () => applyPalette(this.palette);
+        document.addEventListener('sr:theme', repaint);
+        window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', repaint);
+    }
+
+    /** @param {boolean} enabled false zodra de WebGL-achtergrond het overneemt */
+    setLayersEnabled(enabled) {
+        this.useLayers = enabled;
     }
 
     /** Wisselt de achtergrond en de sfeerkleuren naar de nieuwe hoes. */
@@ -130,7 +204,7 @@ export class Ambient {
         if (!src || src === this.current) return;
         this.current = src;
 
-        if (this.layers.length) {
+        if (this.useLayers && this.layers.length) {
             const next = this.layers[(this.active + 1) % this.layers.length];
             next.style.backgroundImage = `url("${src.replace(/["'\\()]/g, '')}")`;
             next.classList.add('is-on');
@@ -138,13 +212,8 @@ export class Ambient {
             this.active = (this.active + 1) % this.layers.length;
         }
 
-        const palette = await extractPalette(src);
-        if (!palette) return;
-
-        const root = document.documentElement;
-        root.style.setProperty('--dyn-1', palette.primary);
-        root.style.setProperty('--dyn-2', palette.secondary);
-        root.style.setProperty('--dyn-3', palette.accent);
+        this.palette = await extractPalette(src);
+        applyPalette(this.palette);
     }
 }
 

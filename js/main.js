@@ -91,8 +91,10 @@ async function refreshNowPlaying() {
     await labelStationBlock(track);
     renderCurrentTrack(track);
 
-    // De sfeerlaag in CSS is het vangnet; draait WebGL, dan neemt die het over.
-    if (!fx?.hasGl) ambient?.apply(track.image);
+    // De geblurde CSS-lagen zijn overbodig zodra de shader draait, maar de
+    // kleuren uit de hoes zijn dat nooit: die voeden de hele interface.
+    ambient?.setLayersEnabled(!fx?.hasGl);
+    ambient?.apply(track.image);
     fx?.setArtwork(track.image);
 }
 

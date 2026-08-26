@@ -53,6 +53,34 @@ de effecten ook synchroon: cursor, shader en scroll delen dezelfde tijdstap.
 `damp()` maakt de interpolatie framerate-onafhankelijk, zodat het op 144 Hz niet
 twee keer zo snel gaat als op 60 Hz.
 
+### Kleur uit de hoes
+
+De hoes van het nummer dat speelt kleurt de hele interface: play- en
+LIVE-knop, voortgangsbalken, sectie-iconen, badges, focusrand, cursor,
+selectie. Het logo en de intro blijven bewust merkrood als vast anker.
+
+Twee soorten tokens, gezet door `applyPalette()` in `js/ambient.js`:
+
+| Token | Waarvoor | Bewerking |
+|---|---|---|
+| `--dyn-1/2/3` | gloed, spectrum, achtergrond | ruwe kleur, ongewijzigd |
+| `--accent`, `--accent-soft`, `--accent-deep`, `--accent-2` | alles met tekst erop | genormaliseerd |
+
+Normaliseren is nodig omdat een ruwe hoeskleur zelden een bruikbare
+UI-kleur is. De verzadiging krijgt een bodem van 50% zodat een grauwe hoes
+geen grijze knoppen oplevert, en de helderheid wordt in een band geduwd die
+past bij het thema: 55-70% op donker, 34-48% op licht. De tint blijft
+ongemoeid, want die maakt het herkenbaar. Bij een themawissel wordt opnieuw
+genormaliseerd.
+
+Gemeten over alle veertien hoezen ligt het contrast met de achtergrond
+tussen 3,6:1 en 10,8:1, dus overal boven de WCAG-drempel van 3:1 voor
+UI-elementen.
+
+De tokens staan als `<color>` geregistreerd met `@property`, waardoor de
+kleurwissel bij een nieuw nummer over ruim een seconde overvloeit in plaats
+van om te springen. Browsers zonder `@property` laten hem gewoon omspringen.
+
 ### Wanneer wordt wat uitgezet
 
 | Situatie | Gevolg |
