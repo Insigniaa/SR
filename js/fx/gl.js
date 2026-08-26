@@ -234,8 +234,24 @@ uniform float uRipple;     // 1 -> 0 na een muisbeweging
 uniform sampler2D uTexA;
 uniform sampler2D uTexB;
 uniform float uMix;        // overgang naar het nieuwe nummer
+uniform float uRadius;     // hoekstraal als fractie van de breedte
 
 ${NOISE}
+
+/**
+ * Afstandsfunctie van een afgeronde rechthoek. Levert 1 binnen de vorm en 0
+ * erbuiten, met een zachte rand van ongeveer een pixel.
+ *
+ * De hoeken worden hier getekend in plaats van door CSS geknipt: een
+ * WebGL-canvas is een versnelde laag en die wordt niet in elke browser door de
+ * border-radius van zijn ouder geknipt. In Firefox bleef de hoes daardoor
+ * vierkant. Pixels wegsnijden werkt overal hetzelfde.
+ */
+float roundedAlpha(vec2 uv, float r) {
+    vec2 p = abs(uv - 0.5) - (0.5 - r);
+    float d = length(max(p, 0.0)) + min(max(p.x, p.y), 0.0) - r;
+    return 1.0 - smoothstep(-0.0025, 0.0025, d);
+}
 
 void main() {
     vec2 uv = vUv;
@@ -279,7 +295,7 @@ void main() {
     float glare = exp(-dist * dist * 6.0) * uHover * 0.14;
     color += glare;
 
-    gl_FragColor = vec4(color, 1.0);
+    gl_FragColor = vec4(color, roundedAlpha(uv, uRadius));
 }`;
 
 /* ============================================================== backdrop */
@@ -450,8 +466,15 @@ export class GLCover {
             hover: gl.getUniformLocation(this.program, 'uHover'),
             energy: gl.getUniformLocation(this.program, 'uEnergy'),
             ripple: gl.getUniformLocation(this.program, 'uRipple'),
-            mix: gl.getUniformLocation(this.program, 'uMix')
+            mix: gl.getUniformLocation(this.program, 'uMix'),
+            radius: gl.getUniformLocation(this.program, 'uRadius')
         };
+
+        this.radius = 0;
+
+        // Transparante hoeken moeten met de pagina mengen.
+        gl.enable(gl.BLEND);
+        gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 
         this.texA = makeTexture(gl, null);
         this.texB = makeTexture(gl, null);
@@ -501,6 +524,11 @@ export class GLCover {
         const dpr = viewport.dpr;
         const w = Math.max(1, Math.round(rect.width * dpr));
         const h = Math.max(1, Math.round(rect.height * dpr));
+
+        // De hoekstraal komt uit de CSS, zodat opmaak en shader niet uit
+        // elkaar kunnen lopen als het ontwerp verandert.
+        const css = Number.parseFloat(getComputedStyle(this.host).borderTopLeftRadius) || 0;
+        this.radius = rect.width ? clamp(css / rect.width, 0, 0.5) : 0;
 
         if (this.canvas.width === w && this.canvas.height === h) return;
         this.canvas.width = w;
@@ -562,6 +590,9 @@ export class GLCover {
             }
         }
 
+        gl.clearColor(0, 0, 0, 0);
+        gl.clear(gl.COLOR_BUFFER_BIT);
+
         gl.activeTexture(gl.TEXTURE0);
         gl.bindTexture(gl.TEXTURE_2D, this.texA);
         gl.activeTexture(gl.TEXTURE1);
@@ -573,6 +604,7 @@ export class GLCover {
         gl.uniform1f(this.u.energy, energy.value);
         gl.uniform1f(this.u.ripple, clamp(this.ripple, 0, 1));
         gl.uniform1f(this.u.mix, this.mix);
+        gl.uniform1f(this.u.radius, this.radius);
 
         gl.drawArrays(gl.TRIANGLES, 0, 3);
     }

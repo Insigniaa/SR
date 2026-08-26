@@ -2192,11 +2192,13 @@ kbd {
     transition: opacity .8s var(--ease-out);
     z-index: 1;
 
-    /* Zelf afronden, niet vertrouwen op de overflow van de ouder. Een
-       WebGL-canvas is een hardwareversnelde laag en die wordt door
-       `overflow: hidden` + `border-radius` van een voorouder in veel browsers
-       niet geknipt: de hoes werd dan vierkant. */
+    /* Drie lagen vangnet, want een WebGL-canvas is een versnelde laag en die
+       wordt niet overal door de `overflow: hidden` van zijn ouder geknipt.
+       De shader tekent de hoeken bovendien zelf (zie roundedAlpha in gl.js);
+       dat is de enige die in elke browser werkt. */
     border-radius: inherit;
+    clip-path: inset(0 round var(--r-xl));
+    -webkit-clip-path: inset(0 round var(--r-xl));
 }
 
 .cover.is-live .cover__gl {
