@@ -4,7 +4,7 @@
  */
 
 import {
-    STREAM_URL, DEFAULT_VOLUME,
+    STREAM_URL, STREAM_DIRECT, DEFAULT_VOLUME,
     RECONNECT_BASE_MS, RECONNECT_MAX_MS, RECONNECT_MAX_TRIES
 } from './config.js';
 import { clamp, store } from './utils.js';
@@ -25,12 +25,27 @@ export class RadioPlayer extends EventTarget {
         this.volume = clamp(Number(store.get(VOLUME_KEY, DEFAULT_VOLUME)), 0, 100);
         this.muted = Boolean(store.get(MUTED_KEY, false));
 
+        /* --- audioanalyse ---------------------------------------------------
+         * We proberen eerst de directe uitzendhost met crossOrigin: alleen dan
+         * mag WebAudio de stream lezen en kan de visualisatie op de echte
+         * muziek reageren. Lukt dat niet - ander domein, verhuisde zender -
+         * dan valt hij terug op de gewone URL zonder analyse.
+         */
+        this.streamUrl = STREAM_DIRECT;
+        this.corsMode = true;
+        this.hasEverPlayed = false;
+        this.canAnalyse = false;
+
+        /** Niveaus per frequentieband, 0..1. Gevuld door sample(). */
+        this.levels = { bass: 0, mid: 0, high: 0, overall: 0, beat: 0 };
+
         this.audio = new Audio();
         this.audio.preload = 'none';          // niet bufferen tot de gebruiker start
         this.audio.autoplay = false;
+        this.audio.crossOrigin = 'anonymous';
         this.audio.volume = this.volume / 100;
         this.audio.muted = this.muted;
-        this.audio.src = STREAM_URL;
+        this.audio.src = this.streamUrl;
 
         this.#bindAudio();
         this.#bindNetwork();
@@ -50,9 +65,10 @@ export class RadioPlayer extends EventTarget {
 
         // Een lopende slaap-fade afbreken en het volume herstellen.
         if (this.fadeTimer) {
+            clearTimeout(this.fadeTimer);
             clearInterval(this.fadeTimer);
             this.fadeTimer = null;
-            this.audio.volume = this.volume / 100;
+            this.#applyGain();
         }
 
         this.#emit('intentchange');
@@ -82,9 +98,9 @@ export class RadioPlayer extends EventTarget {
     /** @param {number} value 0-100 */
     setVolume(value) {
         this.volume = clamp(Math.round(Number(value) || 0), 0, 100);
-        this.audio.volume = this.volume / 100;
 
         if (this.volume > 0 && this.muted) this.setMuted(false);
+        else this.#applyGain();
 
         store.set(VOLUME_KEY, this.volume);
         this.#emit('volumechange');
@@ -92,9 +108,25 @@ export class RadioPlayer extends EventTarget {
 
     setMuted(value) {
         this.muted = Boolean(value);
-        this.audio.muted = this.muted;
+        this.#applyGain();
         store.set(MUTED_KEY, this.muted);
         this.#emit('volumechange');
+    }
+
+    /** Zet het volume op de juiste plek: de gain-node, of anders het element. */
+    #applyGain() {
+        const niveau = this.muted ? 0 : this.volume / 100;
+
+        if (this.gain) {
+            // Klein glijpad tegen klikken bij snelle schuifbewegingen.
+            const nu = this.audioCtx.currentTime;
+            this.gain.gain.cancelScheduledValues(nu);
+            this.gain.gain.setTargetAtTime(niveau, nu, 0.02);
+            return;
+        }
+
+        this.audio.volume = niveau;
+        this.audio.muted = this.muted;
     }
 
     toggleMute() {
@@ -146,6 +178,22 @@ export class RadioPlayer extends EventTarget {
                 return;
             }
 
+            // Met een audiograaf kan de fade in één keer worden ingepland.
+            if (this.gain) {
+                const nu = this.audioCtx.currentTime;
+                this.gain.gain.cancelScheduledValues(nu);
+                this.gain.gain.setValueAtTime(this.gain.gain.value, nu);
+                this.gain.gain.linearRampToValueAtTime(0.0001, nu + seconden);
+
+                this.fadeTimer = setTimeout(() => {
+                    this.fadeTimer = null;
+                    this.pause();
+                    this.#applyGain();      // terug naar het ingestelde niveau
+                    resolve();
+                }, seconden * 1000);
+                return;
+            }
+
             const start = this.audio.volume;
             const stappen = Math.max(1, Math.round(seconden * 10));
             let stap = 0;
@@ -159,7 +207,7 @@ export class RadioPlayer extends EventTarget {
                     clearInterval(this.fadeTimer);
                     this.fadeTimer = null;
                     this.pause();
-                    this.audio.volume = this.volume / 100;   // terug naar normaal
+                    this.audio.volume = this.volume / 100;
                     resolve();
                 }
             }, 100);
@@ -188,11 +236,138 @@ export class RadioPlayer extends EventTarget {
         }
     }
 
+    /* ------------------------------------------------------ audioanalyse -- */
+
+    /**
+     * Zet de WebAudio-keten op zodra er echt geluid is.
+     *
+     * Mag pas na een gebruikersgebaar en maar één keer per element:
+     * createMediaElementSource is onomkeerbaar. Vandaar de vlaggen.
+     */
+    #setupAnalyser() {
+        if (this.analyser || !this.corsMode) return;
+        if (!window.AudioContext && !window.webkitAudioContext) return;
+
+        try {
+            const Ctx = window.AudioContext || window.webkitAudioContext;
+            const ctx = new Ctx();
+            const source = ctx.createMediaElementSource(this.audio);
+            const analyser = ctx.createAnalyser();
+
+            analyser.fftSize = 512;
+            analyser.smoothingTimeConstant = 0.75;
+
+            const gain = ctx.createGain();
+
+            // De volgorde is niet vrijblijvend: het volume moet ná de analyser
+            // zitten. Regelen we het op het <audio>-element zelf, dan meet de
+            // analyser het verzwakte signaal en wordt de visualisatie vlak
+            // zodra iemand zachter zet.
+            source.connect(analyser);
+            analyser.connect(gain);
+            gain.connect(ctx.destination);
+
+            ctx.resume().catch(() => { });
+
+            this.audioCtx = ctx;
+            this.analyser = analyser;
+            this.gain = gain;
+            this.spectrum = new Uint8Array(analyser.frequencyBinCount);
+            this.canAnalyse = true;
+
+            // Vanaf nu regelt de gain het volume; het element gaat vol open.
+            this.audio.volume = 1;
+            this.audio.muted = false;
+            this.#applyGain();
+
+            this.#emit('analyserready');
+        } catch {
+            // Geen analyse; het element speelt gewoon zelf verder.
+            this.canAnalyse = false;
+        }
+    }
+
+    /**
+     * Leest één frame audiodata uit en werkt `levels` bij.
+     * Wordt elke frame aangeroepen door de effectenlaag.
+     *
+     * @returns {Uint8Array|null} het ruwe spectrum, of null zonder analyse
+     */
+    sample() {
+        if (!this.analyser || !this.isPlaying) {
+            // Rustig terugzakken als er niets speelt.
+            for (const key of ['bass', 'mid', 'high', 'overall']) {
+                this.levels[key] *= 0.92;
+            }
+            this.levels.beat *= 0.86;
+            return null;
+        }
+
+        this.analyser.getByteFrequencyData(this.spectrum);
+
+        const n = this.spectrum.length;
+        const gemiddelde = (van, tot) => {
+            let som = 0;
+            for (let i = van; i < tot; i += 1) som += this.spectrum[i];
+            return som / ((tot - van) * 255);
+        };
+
+        // Grofweg: laag tot ~250 Hz, midden tot ~4 kHz, daarboven hoog.
+        const bass = gemiddelde(0, Math.max(2, Math.floor(n * 0.06)));
+        const mid = gemiddelde(Math.floor(n * 0.06), Math.floor(n * 0.45));
+        const high = gemiddelde(Math.floor(n * 0.45), n);
+
+        this.levels.bass = bass;
+        this.levels.mid = mid;
+        this.levels.high = high;
+        this.levels.overall = bass * 0.5 + mid * 0.35 + high * 0.15;
+
+        this.#detectBeat(bass);
+        return this.spectrum;
+    }
+
+    /**
+     * Eenvoudige beatdetectie: springt de lage band flink boven zijn eigen
+     * voortschrijdend gemiddelde uit, dan tellen we dat als een tik. Geen
+     * tempo-analyse, wel genoeg om de beelden te laten meeademen.
+     */
+    #detectBeat(bass) {
+        this.bassAvg = this.bassAvg === undefined ? bass : this.bassAvg * 0.94 + bass * 0.06;
+
+        const nu = performance.now();
+        const genoegTijd = nu - (this.lastBeat || 0) > 260;
+
+        if (genoegTijd && bass > this.bassAvg * 1.35 && bass > 0.12) {
+            this.lastBeat = nu;
+            this.levels.beat = 1;
+        } else {
+            this.levels.beat *= 0.86;
+        }
+    }
+
+    /** Terugvallen op de gewone stream zonder analyse. */
+    #fallbackToPlainStream() {
+        this.corsMode = false;
+        this.canAnalyse = false;
+        this.streamUrl = STREAM_URL;
+
+        this.audio.removeAttribute('crossorigin');
+        this.audio.src = STREAM_URL;
+        this.audio.load();
+
+        if (this.intent) {
+            const attempt = this.audio.play();
+            if (attempt) attempt.catch(() => this.#scheduleReconnect());
+        }
+    }
+
     /* --------------------------------------------------------------- intern */
 
     #bindAudio() {
         this.audio.addEventListener('playing', () => {
             this.retries = 0;
+            this.hasEverPlayed = true;
+            this.#setupAnalyser();
             this.#setPlaying(true);
         });
 
@@ -203,7 +378,17 @@ export class RadioPlayer extends EventTarget {
         // verbinding weggevallen.
         this.audio.addEventListener('ended', () => this.#scheduleReconnect());
         this.audio.addEventListener('stalled', () => this.#scheduleReconnect());
-        this.audio.addEventListener('error', () => this.#scheduleReconnect());
+
+        this.audio.addEventListener('error', () => {
+            // Mislukt de allereerste verbinding terwijl crossOrigin aanstaat,
+            // dan is het vrijwel zeker de CORS-controle. Val terug op de
+            // gewone stream; luisteren gaat voor visualiseren.
+            if (this.corsMode && !this.hasEverPlayed) {
+                this.#fallbackToPlainStream();
+                return;
+            }
+            this.#scheduleReconnect();
+        });
     }
 
     #bindNetwork() {
@@ -245,8 +430,8 @@ export class RadioPlayer extends EventTarget {
         this.#clearRetry();
         if (!this.intent) return;
 
-        const separator = STREAM_URL.includes('?') ? '&' : '?';
-        this.audio.src = `${STREAM_URL}${separator}_=${Date.now()}`;
+        const separator = this.streamUrl.includes('?') ? '&' : '?';
+        this.audio.src = `${this.streamUrl}${separator}_=${Date.now()}`;
         this.audio.load();
 
         const attempt = this.audio.play();

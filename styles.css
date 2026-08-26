@@ -2680,3 +2680,15 @@ kbd {
         margin-block: -12px;
     }
 }
+
+/* De hoes ademt mee op de beat. --beat wordt per frame gezet door fx/index.js
+   en is 0 zolang er geen audioanalyse is, dus dit doet dan niets. */
+.cover {
+    scale: calc(1 + var(--beat, 0) * .012);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .cover {
+        scale: 1;
+    }
+}

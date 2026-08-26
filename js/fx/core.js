@@ -98,11 +98,20 @@ export const pointer = {
     speed: 0
 };
 
-/** 0 = stil, 1 = speelt. Voedt de shaders en het spectrum. */
-export const energy = { target: 0, value: 0 };
+/**
+ * `value` is de omhullende: 0 als er niets speelt, 1 als er geluid is.
+ * `level` en `beat` komen uit de werkelijke audioanalyse en geven de dynamiek.
+ */
+export const energy = { target: 0, value: 0, level: 0, beat: 0 };
 
 export function setEnergy(value) {
     energy.target = clamp(value, 0, 1);
+}
+
+/** Gevoed door player.sample(), of door een golfje als analyse niet kan. */
+export function setAudio(level, beat) {
+    energy.level = clamp(level, 0, 1);
+    energy.beat = clamp(beat, 0, 1);
 }
 
 function measureViewport() {

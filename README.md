@@ -99,12 +99,33 @@ van om te springen. Browsers zonder `@property` laten hem gewoon omspringen.
    inhoud in woorden; zit er een icoon of link in, dan slaat hij het element
    over (en dat is met opzet).
 
-### Waarom de visualisatie geen echte audio analyseert
+### Echte audioanalyse
 
-De laut.fm-stream stuurt geen CORS-headers. Een `MediaElementSource` op zo'n
-bron levert in de meeste browsers stilte op — de visualisatie zou de audio dus
-slopen. Het spectrum en de shaders reageren daarom op de afspeelstatus, niet op
-het werkelijke signaal.
+Het spectrum, de shaders en de pulse op de hoes reageren op de werkelijke
+muziek, niet op de afspeelstatus.
+
+Dat kan dankzij twee stream-URL's in `js/config.js`:
+
+| URL | Gedrag |
+|---|---|
+| `stream.laut.fm/super-radio` | 302 naar de uitzendhost, **zonder** CORS-header |
+| `super-radio.stream.laut.fm/super-radio` | 200, kaatst de Origin terug in `Access-Control-Allow-Origin` |
+
+Die 302 breekt CORS, want elke stap in de keten moet kloppen. De directe host
+niet, dus die gaat voor. Mislukt hij — verhuisde zender bijvoorbeeld — dan valt
+`player.js` terug op de gewone URL zonder analyse; luisteren gaat voor
+visualiseren.
+
+**Let op de volgorde in de audiograaf:**
+
+```
+element -> analyser -> gain -> speakers
+```
+
+Het volume moet ná de analyser. Regel je het op het `<audio>`-element zelf, dan
+meet de analyser het verzwakte signaal en wordt de visualisatie vlak zodra
+iemand zachter zet. Vandaar dat `audio.volume` op 1 staat zodra de graaf
+bestaat en `#applyGain()` het werk doet.
 
 ## Databronnen
 

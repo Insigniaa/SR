@@ -417,7 +417,8 @@ export class GLBackdrop {
         gl.uniform2f(this.u.res, this.canvas.width, this.canvas.height);
         gl.uniform1f(this.u.time, t);
         gl.uniform2f(this.u.mouse, pointer.sx / viewport.w, 1 - pointer.sy / viewport.h);
-        gl.uniform1f(this.u.energy, energy.value);
+        // De omhullende zegt of er geluid is, het niveau geeft de dynamiek.
+        gl.uniform1f(this.u.energy, energy.value * (0.35 + energy.level * 1.25));
         gl.uniform1f(this.u.mix, this.mix);
         gl.uniform1f(this.u.fade, this.fade);
 
@@ -601,7 +602,9 @@ export class GLCover {
         gl.uniform1f(this.u.time, t);
         gl.uniform2f(this.u.mouse, this.smoothMouse.x, this.smoothMouse.y);
         gl.uniform1f(this.u.hover, this.hover);
-        gl.uniform1f(this.u.energy, energy.value);
+        // Beat geeft een korte extra duw, zodat de hoes meeademt op de muziek.
+        gl.uniform1f(this.u.energy,
+            energy.value * (0.3 + energy.level * 1.1 + energy.beat * 0.5));
         gl.uniform1f(this.u.ripple, clamp(this.ripple, 0, 1));
         gl.uniform1f(this.u.mix, this.mix);
         gl.uniform1f(this.u.radius, this.radius);

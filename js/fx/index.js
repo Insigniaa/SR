@@ -6,7 +6,7 @@
  * versie zonder dat er iets breekt.
  */
 
-import { setEnergy, canHover, reducedMotion, isCapable } from './core.js';
+import { setEnergy, setAudio, onTick, canHover, reducedMotion, isCapable } from './core.js';
 import { initCursor } from './cursor.js';
 import { initReveals, Scrambler } from './reveal.js';
 import { initSmoothScroll } from './scroll.js';
@@ -81,6 +81,35 @@ export function initFx() {
 
         setPlaying(playing) {
             setEnergy(playing ? 1 : 0);
+        },
+
+        /**
+         * Koppelt de speler zodat de beelden op de echte muziek reageren.
+         *
+         * Lukt de analyse niet - ander domein, geen CORS - dan draait er een
+         * rustig golfje mee, zodat het beeld nog steeds leeft.
+         */
+        attachPlayer(player) {
+            const root = document.documentElement;
+            let beatUit = 0;
+
+            onTick(({ t, dt }) => {
+                player.sample();
+
+                if (player.canAnalyse) {
+                    setAudio(player.levels.overall, player.levels.beat);
+                    beatUit += (player.levels.beat - beatUit) * Math.min(dt * 14, 1);
+                } else {
+                    setAudio(0.42 + Math.sin(t * 1.3) * 0.1, 0);
+                    beatUit *= 0.9;
+                }
+
+                root.style.setProperty('--beat', beatUit.toFixed(3));
+            });
+
+            player.addEventListener('analyserready', () => {
+                root.classList.add('has-audio-analyse');
+            });
         },
 
         /** Na het renderen van nieuwe blokken, zodat die ook onthuld worden. */

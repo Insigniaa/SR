@@ -6,6 +6,21 @@
 export const STATION = 'super-radio';
 export const API_BASE = 'https://api.laut.fm';
 export const STREAM_URL = `https://stream.laut.fm/${STATION}`;
+
+/**
+ * Dezelfde stream, maar rechtstreeks bij de uitzendserver.
+ *
+ * Waarom twee URL's: stream.laut.fm antwoordt met een 302 naar deze host, en
+ * die 302 draagt geen CORS-header. Daardoor mislukt een aanvraag met
+ * crossOrigin en kan de audio niet geanalyseerd worden. Deze host antwoordt
+ * meteen met 200 en kaatst de Origin terug in Access-Control-Allow-Origin,
+ * dus de analyse werkt op elk domein - ook op localhost.
+ *
+ * Let op: dit omzeilt de verdeling over servers die laut.fm met die 302 doet.
+ * Verhuist de zender ooit, dan valt player.js automatisch terug op STREAM_URL;
+ * de visualisatie werkt dan niet meer, het luisteren wel.
+ */
+export const STREAM_DIRECT = `https://${STATION}.stream.laut.fm/${STATION}`;
 export const STATION_PAGE = `https://laut.fm/${STATION}`;
 
 /* --- Artwork ---------------------------------------------------------------
@@ -73,31 +88,31 @@ export const SHOW_IMAGES = {
  * sleutel wint.
  */
 export const SHOW_DESCRIPTIONS = {
-    "60's 70's and 80's": 'Drie decennia achter elkaar. Van de eerste soulklassiekers via disco naar de synths van de jaren tachtig.',
-    'the best of the 60s & 70s': "De nummers die het begin van de popmuziek uitmaakten. Motown, rock-'n-roll, funk en de grote ballads.",
-    'the 80s': 'Synthesizers, schoudervullingen en refreinen die blijven hangen. De jaren tachtig van begin tot eind.',
-    'hits of the 80s': 'De grootste namen uit de jaren tachtig achter elkaar, zonder opvulling.',
-    'de jaren 80': 'Synthesizers, schoudervullingen en refreinen die blijven hangen.',
-    'the 90s': 'Eurodance, britpop, r&b en boybands. Alles waar de jaren negentig om bekendstonden.',
-    '90s': 'Eurodance, britpop, r&b en boybands. Alles waar de jaren negentig om bekendstonden.',
-    'the 00s': 'Het decennium van de eerste downloads. Popsterren, r&b en de eerste clubhits die iedereen kende.',
-    '00s': 'Het decennium van de eerste downloads. Popsterren, r&b en de eerste clubhits die iedereen kende.',
-    'the 10s': 'Van festivalhouse tot streaminghits. De nummers die het afgelopen decennium overal klonken.',
-    '10s': 'Van festivalhouse tot streaminghits. De nummers die het afgelopen decennium overal klonken.',
+    "60's 70's and 80's": 'Van de jaren zestig tot en met de tachtig, achter elkaar door.',
+    'the best of the 60s & 70s': 'Het beste uit de jaren zestig en zeventig. Motown, soul en de eerste grote rockplaten.',
+    'the 80s': 'Alles uit de jaren tachtig, van new wave tot de grote ballads.',
+    'hits of the 80s': 'De grootste hits uit de jaren tachtig.',
+    'de jaren 80': 'Alles uit de jaren tachtig, van new wave tot de grote ballads.',
+    'the 90s': 'De jaren negentig: dance, r&b, britpop en boybands.',
+    '90s': 'De jaren negentig: dance, r&b, britpop en boybands.',
+    'the 00s': 'De jaren nul. Popsterren, r&b en de eerste clubhits.',
+    '00s': 'De jaren nul. Popsterren, r&b en de eerste clubhits.',
+    'the 10s': 'De grote hits van 2010 tot 2020.',
+    '10s': 'De grote hits van 2010 tot 2020.',
 
-    'soul motown and dance classics': 'Motown, Philly soul en de dansvloerklassiekers die daaruit voortkwamen. Warm, ritmisch en tijdloos.',
-    'dance classics': 'De platen die de dansvloer maakten. Disco, funk en house die nog altijd werken.',
-    'rock classics': 'Gitaren vooraan. Van stevige riffs tot de rockballads waar iedereen de tekst van kent.',
-    'love zone': 'Rustiger uur met de mooiste liefdesliedjes. Soul, ballads en alles wat langzaam gaat.',
-    'only the best': 'Een doorlopende selectie van de sterkste nummers uit alle jaren. Geen thema, alleen kwaliteit.',
-    'greatest hits': 'De allergrootste hits achter elkaar. Meezingen aangeraden.',
-    'tophits': 'De nummers die op dit moment het meest gedraaid worden, aangevuld met vaste favorieten.',
-    'top hits': 'De nummers die op dit moment het meest gedraaid worden, aangevuld met vaste favorieten.',
-    'night shift': "Zachtere muziek voor de late uren. Rustig doorlopend tot 's ochtends.",
-    'night': "Zachtere muziek voor de late uren. Rustig doorlopend tot 's ochtends.",
-    'no talk - nonstop': 'Muziek zonder onderbrekingen. Geen praat, alleen platen.',
-    'non-stop': 'Muziek zonder onderbrekingen. Geen praat, alleen platen.',
-    'nonstop': 'Muziek zonder onderbrekingen. Geen praat, alleen platen.'
+    'soul motown and dance classics': 'Motown, soul en de platen die de dansvloer vol kregen.',
+    'dance classics': 'De klassiekers van de dansvloer. Disco, funk en vroege house.',
+    'rock classics': 'Gitaren voorop. Stevige riffs en de ballads die iedereen meezingt.',
+    'love zone': 'Een uur lang de mooiste liefdesliedjes.',
+    'only the best': 'Het beste uit alle jaren, zonder vaste lijn.',
+    'greatest hits': 'Alleen de allergrootste hits. Meezingen mag.',
+    'tophits': 'De grootste hits van dit moment.',
+    'top hits': 'De grootste hits van dit moment.',
+    'night shift': 'Rustige muziek voor de kleine uurtjes.',
+    'night': 'Rustige muziek voor de kleine uurtjes.',
+    'no talk - nonstop': 'Geen gepraat, alleen muziek.',
+    'non-stop': 'Geen gepraat, alleen muziek.',
+    'nonstop': 'Geen gepraat, alleen muziek.'
 };
 
 /** Namen die duiden op een zenderjingle of programma, niet op een artiest. */

@@ -183,10 +183,12 @@ async function boot() {
     player = new RadioPlayer();
     initUI(player);
     initExtras(player);
+    fx.attachPlayer(player);
     preloader.set(0.2);
 
     ambient = new Ambient();
     spectrum = new Spectrum(document.getElementById('spectrum'));
+    spectrum.setSource(player);
 
     document.addEventListener('sr:playing', (event) => {
         spectrum?.setPlaying(event.detail.playing);

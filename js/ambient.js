@@ -220,12 +220,13 @@ export class Ambient {
 /* ================================================================ spectrum */
 
 /**
- * Decoratief spectrum.
+ * Spectrum onder de speler.
  *
- * Bewust géén WebAudio-analyser: de laut.fm-stream stuurt geen CORS-headers, en
- * een MediaElementSource op zo'n bron levert in de meeste browsers stilte op —
- * de visualisatie zou dan de audio slopen. Dit is dus een geanimeerde weergave
- * van de afspeelstatus, niet van het werkelijke signaal.
+ * Tekent bij voorkeur het werkelijke frequentiebeeld van de stream. Dat kan
+ * omdat de uitzendserver van laut.fm CORS toestaat voor superradio.live - zie
+ * de toelichting bij STREAM_DIRECT in config.js. Staat de analyse niet ter
+ * beschikking (ander domein, oudere browser), dan valt hij terug op een
+ * geanimeerd patroon dat alleen de afspeelstatus weergeeft.
  */
 export class Spectrum {
     constructor(canvas) {
@@ -262,6 +263,11 @@ export class Spectrum {
         if (playing) this.start();
     }
 
+    /** Koppelt de speler; vanaf dan tekent hij de echte frequenties. */
+    setSource(player) {
+        this.player = player;
+    }
+
     resize() {
         if (!this.ctx) return;
 
@@ -296,7 +302,7 @@ export class Spectrum {
         this.draw();
 
         // Volledig tot rust gekomen en niets te tonen: animatie stoppen.
-        if (this.energy < 0.004 && Math.max(...this.levels) < 0.004) {
+        if (!this.player?.canAnalyse && this.energy < 0.004 && Math.max(...this.levels) < 0.004) {
             this.stop();
             return;
         }
@@ -323,19 +329,33 @@ export class Spectrum {
         const barWidth = Math.max(2, (width - gap * (this.bars - 1)) / this.bars);
         const baseline = height;
 
-        for (let i = 0; i < this.bars; i += 1) {
-            // Drie sinussen met verschillende frequenties geven een onregelmatig,
-            // organisch patroon in plaats van een zichtbare golf.
-            const n = i / this.bars;
-            const wave =
-                Math.sin(this.phase * 1.7 + i * 0.34) * 0.5 +
-                Math.sin(this.phase * 0.9 + i * 0.13) * 0.32 +
-                Math.sin(this.phase * 2.6 + i * 0.71) * 0.18;
+        const fft = this.player?.canAnalyse ? this.player.spectrum : null;
 
-            // Naar het midden toe hoger, zoals een echt spectrum.
-            const envelope = 0.35 + 0.65 * Math.sin(Math.PI * n) ** 0.7;
-            this.targets[i] = clamp((0.5 + wave * 0.5) * envelope * this.energy, 0, 1);
-            this.levels[i] += (this.targets[i] - this.levels[i]) * 0.22;
+        for (let i = 0; i < this.bars; i += 1) {
+            const n = i / this.bars;
+
+            if (fft) {
+                // Logaritmisch verdelen: het gehoor werkt zo, en anders zit
+                // alle beweging in de eerste paar balkjes.
+                const van = Math.floor((fft.length - 1) * (n ** 1.7));
+                const tot = Math.max(van + 1,
+                    Math.floor((fft.length - 1) * (((i + 1) / this.bars) ** 1.7)));
+
+                let som = 0;
+                for (let k = van; k < tot; k += 1) som += fft[k];
+                this.targets[i] = clamp((som / (tot - van)) / 255, 0, 1);
+            } else {
+                // Terugval: drie sinussen geven een onregelmatig patroon.
+                const wave =
+                    Math.sin(this.phase * 1.7 + i * 0.34) * 0.5 +
+                    Math.sin(this.phase * 0.9 + i * 0.13) * 0.32 +
+                    Math.sin(this.phase * 2.6 + i * 0.71) * 0.18;
+                const envelope = 0.35 + 0.65 * Math.sin(Math.PI * n) ** 0.7;
+                this.targets[i] = clamp((0.5 + wave * 0.5) * envelope * this.energy, 0, 1);
+            }
+
+            // Echte data mag sneller volgen dan het rustige terugvalpatroon.
+            this.levels[i] += (this.targets[i] - this.levels[i]) * (fft ? 0.4 : 0.22);
 
             const barHeight = Math.max(2, this.levels[i] * height * 0.92);
             const x = i * (barWidth + gap);
