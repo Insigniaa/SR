@@ -86,7 +86,7 @@ async function refreshNowPlaying() {
     if (track.key === lastTrackKey) return;
     lastTrackKey = track.key;
 
-    track.image = (await getArtwork(track.title, track.artist)) || DEFAULT_COVER;
+    track.image = (await getArtwork(track.title, track.artist, track.startedAt)) || DEFAULT_COVER;
     renderCurrentTrack(track);
 
     // De sfeerlaag in CSS is het vangnet; draait WebGL, dan neemt die het over.
@@ -111,7 +111,7 @@ async function refreshPlaylists() {
 
     const enriched = await Promise.all(tracks.map(async (track) => ({
         ...track,
-        image: (await getArtwork(track.title, track.artist)) || DEFAULT_COVER
+        image: (await getArtwork(track.title, track.artist, track.startedAt)) || DEFAULT_COVER
     })));
 
     renderRecentTracks(enriched);

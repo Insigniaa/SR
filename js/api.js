@@ -202,6 +202,25 @@ export function showImage(...names) {
     return null;
 }
 
+/**
+ * Het hoesje van het programma dat op een bepaald moment uitzendt.
+ *
+ * Nodig omdat laut.fm bij een zenderblok de programmanaam nergens in de
+ * trackgegevens zet: `current_song` geeft dan artiest "Super - Radio" en als
+ * titel een opsomming van artiesten. De naam staat alleen in het rooster.
+ *
+ * @param {Date} [when] moment om op te zoeken; standaard nu
+ */
+export async function showImageAt(when = new Date()) {
+    try {
+        const schedule = await getSchedule();
+        const show = schedule.find((entry) => isShowLive(entry, when));
+        return show ? showImage(show.name) : null;
+    } catch {
+        return null;
+    }
+}
+
 /* =================================================================== artwork */
 
 /** In-memory + sessionStorage cache, zodat een herlaadbeurt niets opnieuw zoekt. */
@@ -234,14 +253,25 @@ function persistArtworkCache() {
  *
  * @returns {Promise<string|null>} URL van het hoesje, of null
  */
-export async function getArtwork(title, artist) {
+export async function getArtwork(title, artist, when) {
     if (!title || !artist) return null;
 
-    // Zenderjingles en programma's: eigen hoesje, nooit een externe zoekopdracht.
-    if (isStationTrack(artist) || isStationTrack(title)) {
-        // Titel en artiest allebei aanbieden: laut.fm zet bij deze blokken de
-        // programmanaam nu eens in het ene veld en dan weer in het andere.
-        return showImage(title, artist);
+    // Een artiestveld dat zelf een programmanaam is, is geen artiest maar een
+    // zenderblok: "Rock Classics +", "de jaren 80 +". Door hierop te toetsen
+    // hoeven die niet stuk voor stuk in STATION_ALIASES te staan; wie een
+    // programma aan SHOW_IMAGES toevoegt, krijgt de herkenning er gratis bij.
+    const artistAsShow = showImage(artist);
+
+    if (artistAsShow || isStationTrack(artist) || isStationTrack(title)) {
+        // Staat de programmanaam in de trackgegevens, dan zijn we klaar.
+        const direct = artistAsShow || showImage(title);
+        if (direct) return direct;
+
+        // Meestal staat hij daar niet: laut.fm geeft dan artiest
+        // "Super - Radio" en als titel een opsomming van artiesten. Dan
+        // bepaalt het rooster welk programma er op dat moment liep. Zonder
+        // deze terugval kreeg elk zenderblok de standaardhoes.
+        return showImageAt(when);
     }
 
     const key = `${artist}|${title}`.toLowerCase();

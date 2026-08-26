@@ -7,7 +7,7 @@
  *   - stream en API      -> nooit aanraken (live data hoort niet in een cache)
  */
 
-const VERSION = 'v7';
+const VERSION = 'v8';
 const SHELL_CACHE = `super-radio-shell-${VERSION}`;
 const RUNTIME_CACHE = `super-radio-runtime-${VERSION}`;
 const OFFLINE_URL = 'offline.html';

@@ -24,26 +24,41 @@ export const ARTWORK_CACHE_MAX = 300;
 export const DEFAULT_COVER = 'images/default-cover.jpg';
 export const STATION_LOGO = 'images/icon-512.png';
 
-/** Eigen hoesjes voor de programma's van de zender. */
+/**
+ * Eigen hoesjes voor de programma's van de zender.
+ *
+ * De sleutels komen uit de werkelijke namen in api.laut.fm/.../schedule.
+ * `showImage()` matcht kleine letters op woordgrenzen en laat bij meerdere
+ * treffers de langste sleutel winnen, dus specifieke namen mogen naast
+ * algemene staan.
+ */
 export const SHOW_IMAGES = {
-    'only the best': 'images/cover-otb.jpg',
-    'soul motown and dance classics': 'images/cover-soul.jpg',
-    'dance classics': 'images/cover-soul.jpg',
-    'soul motown': 'images/cover-soul.jpg',
+    // Decennia
     "60's 70's and 80's": 'images/cover-retro.jpg',
-    'the best of the 60s & 70s': 'images/cover-retro.jpg',
-    'the 60s & 70s': 'images/cover-retro.jpg',
-    'night': 'images/cover-night.jpg',
-    'night shift': 'images/cover-night.jpg',
-    'tophits': 'images/cover-hits.jpg',
-    'top hits': 'images/cover-hits.jpg',
-    'greatest hits': 'images/cover-hits.jpg',
+    'the best of the 60s & 70s': 'images/cover-6070.jpg',
+    'the 80s': 'images/cover-80s.jpg',
+    'hits of the 80s': 'images/cover-80s.jpg',
     'de jaren 80 +': 'images/cover-80s.jpg',
     'de jaren 80': 'images/cover-80s.jpg',
-    'hits of the 80s': 'images/cover-80s.jpg',
-    'love zone': 'images/cover-lovezone.jpg',
-    '90s': 'images/cover-90s.jpg',
     'the 90s': 'images/cover-90s.jpg',
+    '90s': 'images/cover-90s.jpg',
+    'the 00s': 'images/cover-00s.jpg',
+    '00s': 'images/cover-00s.jpg',
+    'the 10s': 'images/cover-10s.jpg',
+    '10s': 'images/cover-10s.jpg',
+
+    // Genres en vaste blokken
+    'soul motown and dance classics': 'images/cover-soul.jpg',
+    'dance classics': 'images/cover-soul.jpg',
+    'rock classics': 'images/cover-rock.jpg',
+    'love zone': 'images/cover-lovezone.jpg',
+    'only the best': 'images/cover-otb.jpg',
+    'greatest hits': 'images/cover-hits.jpg',
+    'tophits': 'images/cover-hits.jpg',
+    'top hits': 'images/cover-hits.jpg',
+    'night shift': 'images/cover-night.jpg',
+    'night': 'images/cover-night.jpg',
+    'no talk - nonstop': 'images/cover-nonstop.jpg',
     'non-stop': 'images/cover-nonstop.jpg',
     'nonstop': 'images/cover-nonstop.jpg'
 };
